@@ -8,7 +8,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ---- Admin user IDs (add yours after first login) ----
-const ADMIN_IDS = ['YOUR_ADMIN_USER_UUID_HERE'];
+const ADMIN_IDS = ['9770886f-9c12-4b26-b93f-f355f99e959e'];
 
 // ---- Session check (call on protected pages) ----
 async function requireAuth() {
