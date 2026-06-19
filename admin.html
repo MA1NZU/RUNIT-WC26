@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin – FootballPicks</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="predict.html" class="nav-logo">⚽ FootballPicks</a>
+  <div class="nav-links">
+    <a href="predict.html">← Back to Site</a>
+    <a href="#" onclick="logout()">Logout</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>⚙️ Admin <span>Panel</span></h1>
+    <p>Manage rounds and matches</p>
+  </div>
+
+  <!-- Admin tabs -->
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="switchAdminTab('rounds')">Rounds</button>
+    <button class="admin-tab" onclick="switchAdminTab('matches')">Matches</button>
+    <button class="admin-tab" onclick="switchAdminTab('results')">Set Results</button>
+  </div>
+
+  <!-- ROUNDS SECTION -->
+  <div class="admin-section active" id="section-rounds">
+    <div class="card">
+      <h3 style="margin-bottom:20px">Add New Round</h3>
+      <div class="form-group">
+        <label>Round Name</label>
+        <input type="text" id="round-name" placeholder="e.g. Matchday 1, Quarter Final...">
+      </div>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px">
+        <input type="checkbox" id="round-active" style="width:auto">
+        <label for="round-active" style="margin:0; text-transform:none; font-size:0.95rem">
+          Set as active round (shown to users)
+        </label>
+      </div>
+      <button class="btn btn-primary" onclick="addRound()">Add Round</button>
+    </div>
+
+    <div id="rounds-list"></div>
+  </div>
+
+  <!-- MATCHES SECTION -->
+  <div class="admin-section" id="section-matches">
+    <div class="card">
+      <h3 style="margin-bottom:20px">Add New Match</h3>
+      <div class="form-group">
+        <label>Round</label>
+        <select id="match-round"></select>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+        <div class="form-group">
+          <label>Home Team</label>
+          <input type="text" id="home-team" placeholder="Arsenal">
+        </div>
+        <div class="form-group">
+          <label>Away Team</label>
+          <input type="text" id="away-team" placeholder="Chelsea">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Match Date & Time</label>
+        <input type="datetime-local" id="match-date">
+      </div>
+      <button class="btn btn-primary" onclick="addMatch()">Add Match</button>
+    </div>
+
+    <div id="matches-list"></div>
+  </div>
+
+  <!-- RESULTS SECTION -->
+  <div class="admin-section" id="section-results">
+    <div class="card" style="margin-bottom:16px">
+      <p style="color:var(--text-muted); font-size:0.9rem">
+        💡 Enter the final score and click <strong>Save</strong> to record a result
+        and automatically calculate everyone's points.
+      </p>
+    </div>
+    <div id="results-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
