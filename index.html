@@ -9,21 +9,30 @@
 <body>
   <div class="loading">
     <div class="spinner"></div>
-    <p>Loading...</p>
+    <p>Loading FootballPicks...</p>
   </div>
 
+  <!-- Only load the library here -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    const SUPABASE_URL = 'https://bpmmimvlwuokipawabrk.supabase.co/';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+  <script>
+    // We use a self-executing function to keep variables private 
+    // so they don't clash with auth.js
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        window.location.href = 'predict.html';
-      } else {
-        window.location.href = 'login.html';
+      const SB_URL = 'https://bpmmimvlwuokipawabrk.supabase.co/';
+      const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k';
+      
+      try {
+        const tempClient = window.supabase.createClient(SB_URL, SB_KEY);
+        const { data: { session } } = await tempClient.auth.getSession();
+        
+        if (session) {
+          window.location.href = 'predict.html';
+        } else {
+          window.location.href = 'login.html';
+        }
+      } catch (e) {
+        console.error("Redirect error:", e);
       }
     })();
   </script>
