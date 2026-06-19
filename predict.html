@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Predict – FootballPicks</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav>
+  <a href="predict.html" class="nav-logo">⚽ FootballPicks</a>
+  <div class="nav-links">
+    <a href="predict.html" class="active">Predict</a>
+    <a href="leaderboard.html">Leaderboard</a>
+    <a href="#" onclick="logout()" id="logout-btn">Logout</a>
+  </div>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Make Your <span>Predictions</span></h1>
+    <p id="user-greeting">Loading...</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-bar" id="stats-bar" style="display:none">
+    <div class="stat-box">
+      <div class="stat-num" id="stat-points">0</div>
+      <div class="stat-label">My Points</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" id="stat-predicted">0</div>
+      <div class="stat-label">Predicted</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-num" id="stat-rank">#–</div>
+      <div class="stat-label">My Rank</div>
+    </div>
+  </div>
+
+  <!-- Matches list -->
+  <div id="matches-container">
+    <div class="loading">
+      <div class="spinner"></div>
+      <p>Loading matches...</p>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/auth.js"></script>
+<script src="js/predict.js"></script>
+</body>
+</html>
