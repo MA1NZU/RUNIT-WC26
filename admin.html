@@ -6,6 +6,30 @@
   <title>Admin – FootballPicks</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
+
+<body>
+
+<!-- TEMPORARY DEBUG -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  console.log("1. Library loaded:", window.supabase);
+  
+  const testClient = window.supabase.createClient(
+    'YOUR_SUPABASE_URL',
+    'YOUR_SUPABASE_ANON_KEY'
+  );
+  
+  console.log("2. Client created:", testClient);
+  
+  testClient.from('rounds').select('*').then(result => {
+    console.log("3. Query result:", result);
+  });
+</script>
+<!-- END DEBUG -->
+
+<nav>
+  ...
+  
 <body>
 
 <nav>
