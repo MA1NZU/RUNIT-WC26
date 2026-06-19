@@ -8,7 +8,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ---- Admin user IDs (add yours after first login) ----
-const ADMIN_IDS = ['9770886f-9c12-4b26-b93f-f355f99e959e'];
+const ADMIN_IDS = [];
 
 // ---- Session check (call on protected pages) ----
 async function requireAuth() {
@@ -24,10 +24,13 @@ async function requireAuth() {
 async function requireAdmin() {
   const session = await requireAuth();
   if (!session) return null;
-  if (!ADMIN_IDS.includes(session.user.id)) {
-    window.location.href = 'predict.html';
-    return null;
-  }
+  
+  // Temporarily disabled admin check for setup
+  // if (!ADMIN_IDS.includes(session.user.id)) {
+  //   window.location.href = 'predict.html';
+  //   return null;
+  // }
+  
   return session;
 }
 
@@ -103,9 +106,10 @@ async function handleSignup(e) {
     btn.disabled = false;
     btn.textContent = 'Create Account';
   } else {
-    showSuccess('Account created! Check your email to confirm, then login.');
+    showSuccess('Account created! You can now login.');
     btn.disabled = false;
     btn.textContent = 'Create Account';
+    switchTab('login');
   }
 }
 
