@@ -8,23 +8,7 @@
 </head>
   
 <body>
-<!-- TEMPORARY DEBUG -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-  console.log("1. Library loaded:", window.supabase);
-  
-  const testClient = window.supabase.createClient(
-    'https://bpmmimvlwuokipawabrk.supabase.co/',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k'
-  );
-  
-  console.log("2. Client created:", testClient);
-  
-  testClient.from('rounds').select('*').then(result => {
-    console.log("3. Query result:", result);
-  });
-</script>
-<!-- END DEBUG -->
+
 <nav>
   <a href="predict.html" class="nav-logo">⚽ FootballPicks</a>
   <div class="nav-links">
@@ -62,7 +46,6 @@
       </div>
       <button class="btn btn-primary" onclick="addRound()">Add Round</button>
     </div>
-
     <div id="rounds-list"></div>
   </div>
 
@@ -90,7 +73,6 @@
       </div>
       <button class="btn btn-primary" onclick="addMatch()">Add Match</button>
     </div>
-
     <div id="matches-list"></div>
   </div>
 
@@ -108,9 +90,10 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Scripts: Library first, then auth, then admin. Only loaded ONCE. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/auth.js"></script>
 <script src="js/admin.js"></script>
-  
+
 </body>
 </html>
