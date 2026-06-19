@@ -5,20 +5,45 @@
 let adminSession = null;
 let roundsCache = [];
 let matchesCache = [];
+let db = null; // We will use this instead of supabase directly
 
 async function init() {
-  adminSession = await requireAdmin();
-  if (!adminSession) return;
+  // Wait for auth.js to be ready
+  if (typeof window.supabase === 'undefined') {
+    console.error('Supabase library not loaded');
+    return;
+  }
 
-  // Load all data in parallel (2 queries total)
+  // Create our own client inside admin.js to be safe
+  db = window.supabase.createClient(
+    'https://bpmmimvlwuokipawabrk.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k'
+  );
+
+  // Check session
+  const { data: { session } } = await db.auth.getSession();
+  if (!session) {
+    window.location.href = 'login.html';
+    return;
+  }
+
+  adminSession = session;
+  console.log('Admin logged in:', session.user.email);
+
   await loadAll();
 }
 
 async function loadAll() {
   const [roundsRes, matchesRes] = await Promise.all([
-    supabase.from('rounds').select('id, name, is_active').order('id'),
-    supabase.from('matches').select('id, round_id, home_team, away_team, match_date, home_score, away_score, is_finished').order('id')
+    db.from('rounds').select('id, name, is_active').order('id'),
+    db.from('matches').select('id, round_id, home_team, away_team, match_date, home_score, away_score, is_finished').order('id')
   ]);
+
+  if (roundsRes.error) {
+    console.error('Rounds error:', roundsRes.error);
+    showToast('Error loading rounds: ' + roundsRes.error.message, 'error');
+    return;
+  }
 
   roundsCache = roundsRes.data || [];
   matchesCache = matchesRes.data || [];
@@ -29,10 +54,10 @@ async function loadAll() {
   populateRoundSelect();
 }
 
+// ---- TAB SWITCHING ----
 function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
-
   event.target.classList.add('active');
   document.getElementById(`section-${tab}`).classList.add('active');
 }
@@ -41,7 +66,7 @@ function switchAdminTab(tab) {
 function renderRoundsList() {
   const container = document.getElementById('rounds-list');
   if (roundsCache.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No rounds yet.</p></div>';
+    container.innerHTML = '<div class="empty-state"><p>No rounds yet. Add one above!</p></div>';
     return;
   }
 
@@ -54,7 +79,9 @@ function renderRoundsList() {
           <small>${r.is_active ? '🟢 Active' : '⚪ Inactive'}</small>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap">
-          ${!r.is_active ? `<button class="btn btn-ghost btn-sm" onclick="setActiveRound(${r.id})">Set Active</button>` : ''}
+          ${!r.is_active
+            ? `<button class="btn btn-ghost btn-sm" onclick="setActiveRound(${r.id})">Set Active</button>`
+            : ''}
           <button class="btn btn-danger btn-sm" onclick="deleteRound(${r.id})">Delete</button>
         </div>
       </div>`;
@@ -66,10 +93,21 @@ async function addRound() {
   const name = document.getElementById('round-name').value.trim();
   const isActive = document.getElementById('round-active').checked;
 
-  if (!name) { showToast('Enter a round name!', 'error'); return; }
+  if (!name) {
+    showToast('Enter a round name!', 'error');
+    return;
+  }
 
-  const { error } = await supabase.from('rounds').insert({ name, is_active: isActive });
-  if (error) { showToast('Error adding round', 'error'); return; }
+  console.log('Adding round:', name, isActive);
+
+  const { data, error } = await db.from('rounds').insert({ name, is_active: isActive }).select();
+
+  console.log('Insert result:', data, error);
+
+  if (error) {
+    showToast('Error: ' + error.message, 'error');
+    return;
+  }
 
   document.getElementById('round-name').value = '';
   document.getElementById('round-active').checked = false;
@@ -78,17 +116,16 @@ async function addRound() {
 }
 
 async function setActiveRound(roundId) {
-  // Deactivate all, then activate selected (2 queries)
-  await supabase.from('rounds').update({ is_active: false }).neq('id', 0);
-  await supabase.from('rounds').update({ is_active: true }).eq('id', roundId);
+  await db.from('rounds').update({ is_active: false }).neq('id', 0);
+  await db.from('rounds').update({ is_active: true }).eq('id', roundId);
   showToast('Active round updated!');
   await loadAll();
 }
 
 async function deleteRound(roundId) {
   if (!confirm('Delete this round and ALL its matches?')) return;
-  const { error } = await supabase.from('rounds').delete().eq('id', roundId);
-  if (error) { showToast('Error deleting', 'error'); return; }
+  const { error } = await db.from('rounds').delete().eq('id', roundId);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('Round deleted');
   await loadAll();
 }
@@ -97,6 +134,10 @@ async function deleteRound(roundId) {
 function populateRoundSelect() {
   const select = document.getElementById('match-round');
   if (!select) return;
+  if (roundsCache.length === 0) {
+    select.innerHTML = '<option value="">No rounds yet - add one first!</option>';
+    return;
+  }
   select.innerHTML = roundsCache.map(r =>
     `<option value="${r.id}">${r.name}</option>`
   ).join('');
@@ -109,7 +150,6 @@ function renderMatchesList() {
     return;
   }
 
-  // Group by round
   const byRound = {};
   matchesCache.forEach(m => {
     if (!byRound[m.round_id]) byRound[m.round_id] = [];
@@ -120,12 +160,14 @@ function renderMatchesList() {
   roundsCache.forEach(r => {
     const ms = byRound[r.id] || [];
     if (ms.length === 0) return;
-
     html += `<div class="round-label"><h2>${r.name}</h2></div>`;
     ms.forEach(m => {
       const dateStr = m.match_date
-        ? new Date(m.match_date).toLocaleString([], { weekday:'short', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })
-        : 'No date';
+        ? new Date(m.match_date).toLocaleString([], {
+            weekday: 'short', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          })
+        : 'No date set';
       html += `
         <div class="admin-match-item">
           <div class="admin-match-info">
@@ -151,14 +193,14 @@ async function addMatch() {
     return;
   }
 
-  const { error } = await supabase.from('matches').insert({
+  const { error } = await db.from('matches').insert({
     round_id: parseInt(roundId),
     home_team: homeTeam,
     away_team: awayTeam,
     match_date: matchDate || null
   });
 
-  if (error) { showToast('Error adding match', 'error'); return; }
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
 
   document.getElementById('home-team').value = '';
   document.getElementById('away-team').value = '';
@@ -169,8 +211,8 @@ async function addMatch() {
 
 async function deleteMatch(matchId) {
   if (!confirm('Delete this match and all its predictions?')) return;
-  const { error } = await supabase.from('matches').delete().eq('id', matchId);
-  if (error) { showToast('Error deleting', 'error'); return; }
+  const { error } = await db.from('matches').delete().eq('id', matchId);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
   showToast('Match deleted');
   await loadAll();
 }
@@ -194,9 +236,9 @@ function renderResultsList() {
             <small>${round ? round.name : ''}</small>
           </div>
           <div class="score-form">
-            <input type="number" id="res-home-${m.id}" min="0" max="20" placeholder="0" value="">
+            <input type="number" id="res-home-${m.id}" min="0" max="20" placeholder="0">
             <span style="color:var(--text-muted)">–</span>
-            <input type="number" id="res-away-${m.id}" min="0" max="20" placeholder="0" value="">
+            <input type="number" id="res-away-${m.id}" min="0" max="20" placeholder="0">
             <button class="btn btn-primary btn-sm" onclick="saveResult(${m.id})">Save</button>
           </div>
         </div>`;
@@ -232,71 +274,63 @@ async function saveResult(matchId) {
     return;
   }
 
-  // 1. Mark match as finished
-  const { error: matchError } = await supabase
+  const { error: matchError } = await db
     .from('matches')
     .update({ home_score: homeScore, away_score: awayScore, is_finished: true })
     .eq('id', matchId);
 
-  if (matchError) { showToast('Error saving result', 'error'); return; }
+  if (matchError) { showToast('Error: ' + matchError.message, 'error'); return; }
 
-  // 2. Get all predictions for this match
-  const { data: preds } = await supabase
+  const { data: preds } = await db
     .from('predictions')
     .select('id, user_id, predicted_home, predicted_away')
     .eq('match_id', matchId);
 
   if (!preds || preds.length === 0) {
-    showToast('Result saved! (No predictions to score)');
+    showToast('Result saved! No predictions to score.');
     await loadAll();
     return;
   }
 
-  // 3. Calculate points
-  const actualResult = Math.sign(homeScore - awayScore); // -1, 0, 1
+  const actualResult = Math.sign(homeScore - awayScore);
 
-  const updates = preds.map(p => {
+  for (const p of preds) {
     let points = 0;
     if (p.predicted_home === homeScore && p.predicted_away === awayScore) {
-      points = 3; // Exact score
+      points = 3;
     } else {
       const predResult = Math.sign(p.predicted_home - p.predicted_away);
-      if (predResult === actualResult) points = 1; // Correct outcome
+      if (predResult === actualResult) points = 1;
     }
-    return { id: p.id, user_id: p.user_id, match_id: matchId, points_earned: points };
-  });
 
-  // 4. Update predictions with points
-  for (const u of updates) {
-    await supabase
-      .from('predictions')
-      .update({ points_earned: u.points_earned })
-      .eq('id', u.id);
-  }
+    await db.from('predictions').update({ points_earned: points }).eq('id', p.id);
 
-  // 5. Update each player's total points
-  // Group points by user
-  const pointsByUser = {};
-  updates.forEach(u => {
-    pointsByUser[u.user_id] = (pointsByUser[u.user_id] || 0) + u.points_earned;
-  });
+    if (points > 0) {
+      const { data: profile } = await db
+        .from('profiles')
+        .select('total_points')
+        .eq('id', p.user_id)
+        .single();
 
-  for (const [userId, pts] of Object.entries(pointsByUser)) {
-    // Get current points first
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('total_points')
-      .eq('id', userId)
-      .single();
-
-    await supabase
-      .from('profiles')
-      .update({ total_points: (profile?.total_points || 0) + pts })
-      .eq('id', userId);
+      await db
+        .from('profiles')
+        .update({ total_points: (profile?.total_points || 0) + points })
+        .eq('id', p.user_id);
+    }
   }
 
   showToast(`Result saved! ${preds.length} predictions scored ✅`);
   await loadAll();
 }
 
+// ---- TOAST (local to admin since supabase var may not exist) ----
+function showToast(msg, type = 'success') {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+  toast.textContent = (type === 'success' ? '✅ ' : '❌ ') + msg;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => { toast.className = 'toast'; }, 3000);
+}
+
+// ---- START ----
 init();
