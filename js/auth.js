@@ -2,16 +2,17 @@
 // AUTH.JS
 // ============================================
 
-const SUPABASE_URL = 'https://bpmmimvlwuokipawabrk.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k';
+const _sbUrl = 'https://bpmmimvlwuokipawabrk.supabase.co';
+const _sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Use a unique name so it never clashes with anything
+const _authClient = window.supabase.createClient(_sbUrl, _sbKey);
 
 const ADMIN_IDS = [];
 
 // ---- Session check ----
 async function requireAuth() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await _authClient.auth.getSession();
   if (!session) {
     window.location.href = 'login.html';
     return null;
@@ -28,11 +29,11 @@ async function requireAdmin() {
 
 // ---- Logout ----
 async function logout() {
-  await supabase.auth.signOut();
+  await _authClient.auth.signOut();
   window.location.href = 'login.html';
 }
 
-// ---- Tab switcher (login page) ----
+// ---- Tab switcher ----
 function switchTab(tab) {
   const loginForm = document.getElementById('login-form');
   const signupForm = document.getElementById('signup-form');
@@ -65,7 +66,7 @@ async function handleLogin(e) {
   btn.textContent = 'Logging in...';
   hideMessages();
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await _authClient.auth.signInWithPassword({ email, password });
 
   if (error) {
     showError(error.message);
@@ -88,7 +89,7 @@ async function handleSignup(e) {
   btn.textContent = 'Creating account...';
   hideMessages();
 
-  const { error } = await supabase.auth.signUp({
+  const { error } = await _authClient.auth.signUp({
     email,
     password,
     options: { data: { username } }
@@ -135,7 +136,7 @@ function showToast(msg, type = 'success') {
 
 // ---- Auto redirect if already logged in ----
 if (window.location.pathname.includes('login.html')) {
-  supabase.auth.getSession().then(({ data: { session } }) => {
+  _authClient.auth.getSession().then(({ data: { session } }) => {
     if (session) window.location.href = 'predict.html';
   });
 }
