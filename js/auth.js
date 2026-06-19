@@ -1,16 +1,15 @@
 // ============================================
-// AUTH.JS - Shared authentication + supabase
+// AUTH.JS
 // ============================================
 
-const SUPABASE_URL = 'https://bpmmimvlwuokipawabrk.supabase.co/';
+const SUPABASE_URL = 'https://bpmmimvlwuokipawabrk.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ---- Admin user IDs (add yours after first login) ----
 const ADMIN_IDS = [];
 
-// ---- Session check (call on protected pages) ----
+// ---- Session check ----
 async function requireAuth() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
@@ -24,13 +23,6 @@ async function requireAuth() {
 async function requireAdmin() {
   const session = await requireAuth();
   if (!session) return null;
-  
-  // Temporarily disabled admin check for setup
-  // if (!ADMIN_IDS.includes(session.user.id)) {
-  //   window.location.href = 'predict.html';
-  //   return null;
-  // }
-  
   return session;
 }
 
@@ -40,14 +32,13 @@ async function logout() {
   window.location.href = 'login.html';
 }
 
-// ---- LOGIN PAGE functions ----
+// ---- Tab switcher (login page) ----
 function switchTab(tab) {
   const loginForm = document.getElementById('login-form');
   const signupForm = document.getElementById('signup-form');
   const tabs = document.querySelectorAll('.tab-btn');
-  
-  if (!loginForm) return;
 
+  if (!loginForm) return;
   hideMessages();
 
   if (tab === 'login') {
@@ -63,6 +54,7 @@ function switchTab(tab) {
   }
 }
 
+// ---- Login ----
 async function handleLogin(e) {
   e.preventDefault();
   const email = document.getElementById('login-email').value;
@@ -84,6 +76,7 @@ async function handleLogin(e) {
   }
 }
 
+// ---- Signup ----
 async function handleSignup(e) {
   e.preventDefault();
   const username = document.getElementById('signup-username').value.trim();
@@ -113,6 +106,7 @@ async function handleSignup(e) {
   }
 }
 
+// ---- Messages ----
 function showError(msg) {
   const el = document.getElementById('error-msg');
   if (el) { el.textContent = msg; el.style.display = 'block'; }
@@ -130,7 +124,7 @@ function hideMessages() {
   if (suc) suc.style.display = 'none';
 }
 
-// ---- Toast notification ----
+// ---- Toast ----
 function showToast(msg, type = 'success') {
   const toast = document.getElementById('toast');
   if (!toast) return;
@@ -139,7 +133,7 @@ function showToast(msg, type = 'success') {
   setTimeout(() => { toast.className = 'toast'; }, 3000);
 }
 
-// ---- Redirect if already logged in (for login page) ----
+// ---- Auto redirect if already logged in ----
 if (window.location.pathname.includes('login.html')) {
   supabase.auth.getSession().then(({ data: { session } }) => {
     if (session) window.location.href = 'predict.html';
