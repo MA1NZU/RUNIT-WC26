@@ -8,7 +8,7 @@ const _sbKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 // Use a unique name so it never clashes with anything
 const _authClient = window.supabase.createClient(_sbUrl, _sbKey);
 
-const ADMIN_IDS = [];
+const ADMIN_IDS = ['9770886f-9c12-4b26-b93f-f355f99e959e'];
 
 // ---- Session check ----
 async function requireAuth() {
