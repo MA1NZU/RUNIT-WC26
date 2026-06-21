@@ -1,5 +1,5 @@
 // ============================================
-// ADMIN.JS — Cairo timezone aware
+// ADMIN.JS — Cairo UTC+2 fixed
 // ============================================
 
 let adminSession = null;
@@ -7,65 +7,71 @@ let roundsCache  = [];
 let matchesCache = [];
 let db           = null;
 
-// Cairo is UTC+2 (EET) or UTC+3 (EEST in summer)
-// We let the browser handle display, but store correctly
-const CAIRO_TZ = 'Africa/Cairo';
+// ============================================
+// TIMEZONE HELPERS
+// Egypt does NOT use DST — always UTC+2
+// ============================================
 
-// ---- Helper: format date in Cairo time ----
 function formatCairoDate(isoString) {
   if (!isoString) return 'No date set';
   return new Date(isoString).toLocaleString('en-GB', {
-    timeZone: CAIRO_TZ,
-    weekday: 'short',
-    day:     'numeric',
-    month:   'short',
-    hour:    '2-digit',
-    minute:  '2-digit',
-    hour12:  false
-  }) + ' (Cairo)';
+    timeZone: 'Africa/Cairo',
+    weekday:  'short',
+    day:      'numeric',
+    month:    'short',
+    hour:     '2-digit',
+    minute:   '2-digit',
+    hour12:   false
+  }) + ' 🇪🇬';
 }
 
-// ---- Helper: convert Cairo local datetime-local input → UTC ISO string ----
+// Convert Cairo local input → UTC
+// Egypt is always UTC+2, no DST since 2011
 function cairoInputToUTC(localDatetimeStr) {
   if (!localDatetimeStr) return null;
 
-  // datetime-local gives us "2025-01-15T20:00"
-  // We need to interpret this as Cairo time and convert to UTC
-  // Cairo is Africa/Cairo timezone
-  // Use Intl to figure out Cairo offset at that moment
+  const CAIRO_OFFSET_HOURS = 2;
   const [datePart, timePart] = localDatetimeStr.split('T');
   const [year, month, day]   = datePart.split('-').map(Number);
   const [hour, minute]       = timePart.split(':').map(Number);
 
-  // Create a date string as if it's Cairo time
-  // We use a trick: format a UTC date and find the offset
-  const guessUTC = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  // Subtract Cairo offset to get UTC
+  const utcDate = new Date(Date.UTC(
+    year,
+    month - 1,
+    day,
+    hour - CAIRO_OFFSET_HOURS,
+    minute
+  ));
 
-  // Find Cairo offset at that time
-  const cairoStr = guessUTC.toLocaleString('en-US', { timeZone: CAIRO_TZ });
-  const cairoDate = new Date(cairoStr);
-  const offsetMs = guessUTC - cairoDate;
-
-  // Apply offset to get true UTC
-  const trueUTC = new Date(guessUTC.getTime() + offsetMs);
-  return trueUTC.toISOString();
+  return utcDate.toISOString();
 }
 
-// ---- Helper: convert UTC ISO → Cairo datetime-local string (for input prefill) ----
-function utcToCairoInput(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  const cairoStr = date.toLocaleString('en-CA', {
-    timeZone: CAIRO_TZ,
+// Live preview of saved time
+function previewCairoTime(val) {
+  const preview = document.getElementById('cairo-preview');
+  if (!val) { preview.style.display = 'none'; return; }
+
+  const utcString = cairoInputToUTC(val);
+  if (!utcString) { preview.style.display = 'none'; return; }
+
+  const displayBack = new Date(utcString).toLocaleString('en-GB', {
+    timeZone: 'Africa/Cairo',
+    weekday:  'long',
+    day:      'numeric',
+    month:    'long',
     year:     'numeric',
-    month:    '2-digit',
-    day:      '2-digit',
     hour:     '2-digit',
     minute:   '2-digit',
     hour12:   false
   });
-  // en-CA gives "YYYY-MM-DD, HH:MM" — format to "YYYY-MM-DDTHH:MM"
-  return cairoStr.replace(', ', 'T').replace(',', 'T');
+
+  preview.style.display = 'block';
+  preview.innerHTML = `
+    ✅ Saves as: <strong>${displayBack} (Cairo)</strong><br>
+    <span style="color:var(--text-muted); font-size:0.78rem">
+      UTC stored: ${utcString}
+    </span>`;
 }
 
 // ============================================
@@ -90,12 +96,16 @@ async function init() {
 }
 
 // ============================================
-// LOAD ALL DATA
+// LOAD ALL
 // ============================================
 async function loadAll() {
   const [roundsRes, matchesRes] = await Promise.all([
-    db.from('rounds').select('id, name, is_active').order('id'),
-    db.from('matches').select('id, round_id, home_team, away_team, match_date, home_score, away_score, is_finished').order('match_date', { ascending: true })
+    db.from('rounds')
+      .select('id, name, is_active')
+      .order('id'),
+    db.from('matches')
+      .select('id, round_id, home_team, away_team, match_date, home_score, away_score, is_finished')
+      .order('match_date', { ascending: true })
   ]);
 
   if (roundsRes.error) {
@@ -128,7 +138,10 @@ function switchAdminTab(tab, el) {
 function renderRoundsList() {
   const container = document.getElementById('rounds-list');
   if (roundsCache.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No rounds yet. Add one above!</p></div>';
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>No rounds yet. Add one above!</p>
+      </div>`;
     return;
   }
 
@@ -138,14 +151,18 @@ function renderRoundsList() {
       <div class="admin-match-item">
         <div class="admin-match-info">
           <strong>${r.name}</strong>
-          <small>${r.is_active ? '🟢 Active — shown to players' : '⚪ Inactive'}</small>
+          <small>${r.is_active
+            ? '🟢 Active — shown to players'
+            : '⚪ Inactive'}</small>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
           ${!r.is_active ? `
-            <button class="btn btn-ghost btn-sm" onclick="setActiveRound(${r.id})">
+            <button class="btn btn-ghost btn-sm"
+                    onclick="setActiveRound(${r.id})">
               Set Active
             </button>` : ''}
-          <button class="btn btn-danger btn-sm" onclick="deleteRound(${r.id})">
+          <button class="btn btn-danger btn-sm"
+                  onclick="deleteRound(${r.id})">
             Delete
           </button>
         </div>
@@ -160,7 +177,10 @@ async function addRound() {
 
   if (!name) { showToast('Enter a round name!', 'error'); return; }
 
-  const { error } = await db.from('rounds').insert({ name, is_active: isActive });
+  const { error } = await db
+    .from('rounds')
+    .insert({ name, is_active: isActive });
+
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
 
   document.getElementById('round-name').value    = '';
@@ -195,7 +215,9 @@ function populateRoundSelect() {
     return;
   }
   select.innerHTML = roundsCache.map(r =>
-    `<option value="${r.id}">${r.name}${r.is_active ? ' (Active)' : ''}</option>`
+    `<option value="${r.id}">
+       ${r.name}${r.is_active ? ' (Active)' : ''}
+     </option>`
   ).join('');
 }
 
@@ -225,7 +247,10 @@ function renderMatchesList() {
             <strong>${m.home_team} vs ${m.away_team}</strong>
             <small>🗓 ${formatCairoDate(m.match_date)}</small>
           </div>
-          <button class="btn btn-danger btn-sm" onclick="deleteMatch(${m.id})">Delete</button>
+          <button class="btn btn-danger btn-sm"
+                  onclick="deleteMatch(${m.id})">
+            Delete
+          </button>
         </div>`;
     });
   });
@@ -244,7 +269,7 @@ async function addMatch() {
     return;
   }
 
-  // Convert Cairo input to UTC for storage
+  // Convert Cairo time → UTC
   const utcTime = localTime ? cairoInputToUTC(localTime) : null;
 
   const { error } = await db.from('matches').insert({
@@ -256,10 +281,12 @@ async function addMatch() {
 
   if (error) { showToast('Error: ' + error.message, 'error'); return; }
 
-  document.getElementById('home-team').value  = '';
-  document.getElementById('away-team').value  = '';
-  document.getElementById('match-date').value = '';
-  showToast('Match added! (' + formatCairoDate(utcTime) + ')');
+  document.getElementById('home-team').value      = '';
+  document.getElementById('away-team').value      = '';
+  document.getElementById('match-date').value     = '';
+  document.getElementById('cairo-preview').style.display = 'none';
+
+  showToast('✅ Match added! ' + formatCairoDate(utcTime));
   await loadAll();
 }
 
@@ -272,7 +299,7 @@ async function deleteMatch(matchId) {
 }
 
 // ============================================
-// RESULTS — always editable, live recalculation
+// RESULTS — always editable, joker-aware
 // ============================================
 function renderResultsList() {
   const container = document.getElementById('results-list');
@@ -297,79 +324,90 @@ function renderResultsList() {
     html += `<div class="round-label"><h2>${r.name}</h2></div>`;
 
     ms.forEach(m => {
-      const isFinished   = m.is_finished;
-      const currentHome  = m.home_score ?? '';
-      const currentAway  = m.away_score ?? '';
+      const isFinished  = m.is_finished;
+      const currentHome = m.home_score ?? '';
+      const currentAway = m.away_score ?? '';
 
       html += `
-        <div class="admin-match-item" 
+        <div class="admin-match-item"
              style="flex-direction:column; align-items:stretch; gap:16px;
                     ${isFinished ? 'border-color:var(--green)' : ''}">
 
           <!-- Header -->
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px">
+          <div style="display:flex; justify-content:space-between;
+               align-items:center; flex-wrap:wrap; gap:8px">
             <div class="admin-match-info">
-              <strong style="font-size:1rem">${m.home_team} vs ${m.away_team}</strong>
+              <strong style="font-size:1rem">
+                ${m.home_team} vs ${m.away_team}
+              </strong>
               <small>🗓 ${formatCairoDate(m.match_date)}</small>
               <small style="margin-top:2px">
                 ${isFinished
-                  ? `✅ Current: <strong style="color:var(--green)">${m.home_score} – ${m.away_score}</strong>`
+                  ? `✅ Current: <strong style="color:var(--green)">
+                       ${m.home_score} – ${m.away_score}
+                     </strong>`
                   : '⏳ Not started yet'}
               </small>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap">
-              ${isFinished ? `
-                <button class="btn btn-ghost btn-sm" onclick="unfinishMatch(${m.id})">
-                  ↩ Revert
-                </button>` : ''}
-            </div>
+            ${isFinished ? `
+              <button class="btn btn-ghost btn-sm"
+                      onclick="unfinishMatch(${m.id})">
+                ↩ Revert
+              </button>` : ''}
           </div>
 
-          <!-- Score inputs with +/- steppers -->
-          <div style="display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap">
+          <!-- Score inputs -->
+          <div style="display:flex; align-items:flex-end;
+               gap:16px; flex-wrap:wrap">
 
             <!-- Home -->
-            <div style="display:flex; flex-direction:column; align-items:center; gap:8px">
-              <span style="font-size:0.75rem; color:var(--text-muted); 
+            <div style="display:flex; flex-direction:column;
+                 align-items:center; gap:8px">
+              <span style="font-size:0.75rem; color:var(--text-muted);
                     text-transform:uppercase; letter-spacing:0.5px; font-weight:600">
                 ${m.home_team}
               </span>
               <div style="display:flex; align-items:center; gap:6px">
-                <button class="stepper-btn" onclick="changeScore('res-home-${m.id}', -1)">−</button>
+                <button class="stepper-btn"
+                        onclick="changeScore('res-home-${m.id}', -1)">−</button>
                 <input type="number" id="res-home-${m.id}"
                        value="${currentHome}" min="0" max="20"
                        style="width:64px; background:var(--dark);
                               border:2px solid var(--green); border-radius:10px;
                               padding:10px; color:var(--text); font-size:1.4rem;
                               font-weight:800; text-align:center; outline:none">
-                <button class="stepper-btn" onclick="changeScore('res-home-${m.id}', 1)">+</button>
+                <button class="stepper-btn"
+                        onclick="changeScore('res-home-${m.id}', 1)">+</button>
               </div>
             </div>
 
-            <span style="font-size:1.8rem; color:var(--text-muted); font-weight:800;
-                         padding-bottom:10px">–</span>
+            <span style="font-size:1.8rem; color:var(--text-muted);
+                         font-weight:800; padding-bottom:10px">–</span>
 
             <!-- Away -->
-            <div style="display:flex; flex-direction:column; align-items:center; gap:8px">
+            <div style="display:flex; flex-direction:column;
+                 align-items:center; gap:8px">
               <span style="font-size:0.75rem; color:var(--text-muted);
                     text-transform:uppercase; letter-spacing:0.5px; font-weight:600">
                 ${m.away_team}
               </span>
               <div style="display:flex; align-items:center; gap:6px">
-                <button class="stepper-btn" onclick="changeScore('res-away-${m.id}', -1)">−</button>
+                <button class="stepper-btn"
+                        onclick="changeScore('res-away-${m.id}', -1)">−</button>
                 <input type="number" id="res-away-${m.id}"
                        value="${currentAway}" min="0" max="20"
                        style="width:64px; background:var(--dark);
                               border:2px solid var(--green); border-radius:10px;
                               padding:10px; color:var(--text); font-size:1.4rem;
                               font-weight:800; text-align:center; outline:none">
-                <button class="stepper-btn" onclick="changeScore('res-away-${m.id}', 1)">+</button>
+                <button class="stepper-btn"
+                        onclick="changeScore('res-away-${m.id}', 1)">+</button>
               </div>
             </div>
 
             <!-- Save button -->
             <div style="margin-left:auto; padding-bottom:4px">
-              <button class="btn btn-primary" 
+              <button class="btn btn-primary"
                       id="save-btn-${m.id}"
                       onclick="saveResult(${m.id})">
                 ${isFinished ? '🔄 Update Score' : '🟢 Go Live'}
@@ -408,7 +446,11 @@ async function saveResult(matchId) {
   // Update match
   const { error: matchError } = await db
     .from('matches')
-    .update({ home_score: homeScore, away_score: awayScore, is_finished: true })
+    .update({
+      home_score:  homeScore,
+      away_score:  awayScore,
+      is_finished: true
+    })
     .eq('id', matchId);
 
   if (matchError) {
@@ -430,7 +472,7 @@ async function saveResult(matchId) {
     return;
   }
 
-  // Get jokers for this match
+  // Get jokers
   const { data: jokers } = await db
     .from('jokers')
     .select('user_id')
@@ -440,7 +482,8 @@ async function saveResult(matchId) {
   const actualResult = Math.sign(homeScore - awayScore);
 
   for (const p of preds) {
-    const isPerfect  = p.predicted_home === homeScore && p.predicted_away === awayScore;
+    const isPerfect  = p.predicted_home === homeScore
+                    && p.predicted_away === awayScore;
     const predResult = Math.sign(p.predicted_home - p.predicted_away);
     const isCorrect  = predResult === actualResult;
 
@@ -449,7 +492,10 @@ async function saveResult(matchId) {
     const oldPoints  = p.points_earned || 0;
     const diff       = newPoints - oldPoints;
 
-    await db.from('predictions').update({ points_earned: newPoints }).eq('id', p.id);
+    await db
+      .from('predictions')
+      .update({ points_earned: newPoints })
+      .eq('id', p.id);
 
     if (diff !== 0) {
       const { data: profile } = await db
@@ -460,7 +506,9 @@ async function saveResult(matchId) {
 
       await db
         .from('profiles')
-        .update({ total_points: Math.max(0, (profile?.total_points || 0) + diff) })
+        .update({
+          total_points: Math.max(0, (profile?.total_points || 0) + diff)
+        })
         .eq('id', p.user_id);
     }
   }
@@ -489,10 +537,15 @@ async function unfinishMatch(matchId) {
 
         await db
           .from('profiles')
-          .update({ total_points: Math.max(0, (profile?.total_points || 0) - p.points_earned) })
+          .update({
+            total_points: Math.max(0, (profile?.total_points || 0) - p.points_earned)
+          })
           .eq('id', p.user_id);
       }
-      await db.from('predictions').update({ points_earned: 0 }).eq('id', p.id);
+      await db
+        .from('predictions')
+        .update({ points_earned: 0 })
+        .eq('id', p.id);
     }
   }
 
