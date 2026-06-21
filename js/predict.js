@@ -106,17 +106,17 @@ function renderMatches(rounds, predMap) {
       const isPast = hasDate && new Date(match.match_date) < new Date();
       const isLocked = isFinished || isPast;
 
-      // Points badge for finished matches
-      let resultBadge = '';
-      if (isFinished && pred) {
-        if (pred.points_earned === 3) {
-          resultBadge = `<span class="result-badge exact">⚡ Exact! +3pts</span>`;
-        } else if (pred.points_earned === 1) {
-          resultBadge = `<span class="result-badge correct">✓ Correct result +1pt</span>`;
-        } else {
-          resultBadge = `<span class="result-badge wrong">✗ Wrong</span>`;
-        }
-      }
+      // Find this block and replace it
+    let resultBadge = '';
+    if (isFinished && pred) {
+    if (pred.points_earned === 6) {
+      resultBadge = `<span class="result-badge exact">⚡ Perfect! +6pts</span>`;
+    } else if (pred.points_earned === 3) {
+      resultBadge = `<span class="result-badge correct">✓ Correct outcome +3pts</span>`;
+    } else {
+      resultBadge = `<span class="result-badge wrong">✗ Wrong • 0pts</span>`;
+    }
+  }
 
       const dateStr = hasDate
         ? new Date(match.match_date).toLocaleString([], {
