@@ -661,6 +661,30 @@ nav {
   font-size: 1rem;
 }
 
+/* ---- STEPPER BUTTONS (admin score +/-) ---- */
+.stepper-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--dark-3);
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  line-height: 1;
+}
+
+.stepper-btn:hover {
+  background: var(--green);
+  color: #000;
+  border-color: var(--green);
+}
+
 /* ---- LOADING ---- */
 .loading {
   text-align: center;
