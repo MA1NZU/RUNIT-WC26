@@ -48,7 +48,7 @@ async function init() {
 
   const greeting = document.getElementById('user-greeting');
   if (greeting) {
-    greeting.textContent = `Welcome back, ${currentProfile?.username || 'Player'} 👋`;
+    greeting.textContent = `Welcome back, ${currentProfile?.username || 'Player'}`;
   }
 
   const rounds = roundsRes.data || [];
