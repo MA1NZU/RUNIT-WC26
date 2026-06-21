@@ -2,23 +2,24 @@
 // LEADERBOARD.JS
 // ============================================
 
-// Create our own db client
 const _lbDb = window.supabase.createClient(
   'https://bpmmimvlwuokipawabrk.supabase.co',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k'
 );
 
 async function init() {
-  // Check session
   const { data: { session } } = await _lbDb.auth.getSession();
   if (!session) {
     window.location.href = 'login.html';
     return;
   }
 
-  const currentUserId = session.user.id;
+  // Show admin button if admin
+  if (ADMIN_IDS.includes(session.user.id)) {
+    const adminBtn = document.getElementById('admin-nav-btn');
+    if (adminBtn) adminBtn.style.display = 'inline-flex';
+  }
 
-  // Single query - get all profiles sorted by points
   const { data: profiles, error } = await _lbDb
     .from('profiles')
     .select('id, username, total_points')
@@ -55,7 +56,7 @@ async function init() {
 
   profiles.forEach((profile, index) => {
     const rank = index + 1;
-    const isMe = profile.id === currentUserId;
+    const isMe = profile.id === session.user.id;
     const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
     const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
 
