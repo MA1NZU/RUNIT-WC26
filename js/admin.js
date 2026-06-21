@@ -5,22 +5,19 @@
 let adminSession = null;
 let roundsCache = [];
 let matchesCache = [];
-let db = null; // We will use this instead of supabase directly
+let db = null;
 
 async function init() {
-  // Wait for auth.js to be ready
   if (typeof window.supabase === 'undefined') {
     console.error('Supabase library not loaded');
     return;
   }
 
-  // Create our own client inside admin.js to be safe
   db = window.supabase.createClient(
     'https://bpmmimvlwuokipawabrk.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k'
   );
 
-  // Check session
   const { data: { session } } = await db.auth.getSession();
   if (!session) {
     window.location.href = 'login.html';
@@ -28,8 +25,6 @@ async function init() {
   }
 
   adminSession = session;
-  console.log('Admin logged in:', session.user.email);
-
   await loadAll();
 }
 
@@ -40,8 +35,7 @@ async function loadAll() {
   ]);
 
   if (roundsRes.error) {
-    console.error('Rounds error:', roundsRes.error);
-    showToast('Error loading rounds: ' + roundsRes.error.message, 'error');
+    showToast('Error loading: ' + roundsRes.error.message, 'error');
     return;
   }
 
@@ -54,7 +48,9 @@ async function loadAll() {
   populateRoundSelect();
 }
 
-// ---- TAB SWITCHING ----
+// ============================================
+// TAB SWITCHING
+// ============================================
 function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
@@ -62,7 +58,9 @@ function switchAdminTab(tab) {
   document.getElementById(`section-${tab}`).classList.add('active');
 }
 
-// ---- ROUNDS ----
+// ============================================
+// ROUNDS
+// ============================================
 function renderRoundsList() {
   const container = document.getElementById('rounds-list');
   if (roundsCache.length === 0) {
@@ -80,9 +78,13 @@ function renderRoundsList() {
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap">
           ${!r.is_active
-            ? `<button class="btn btn-ghost btn-sm" onclick="setActiveRound(${r.id})">Set Active</button>`
+            ? `<button class="btn btn-ghost btn-sm" onclick="setActiveRound(${r.id})">
+                Set Active
+               </button>`
             : ''}
-          <button class="btn btn-danger btn-sm" onclick="deleteRound(${r.id})">Delete</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteRound(${r.id})">
+            Delete
+          </button>
         </div>
       </div>`;
   });
@@ -93,21 +95,10 @@ async function addRound() {
   const name = document.getElementById('round-name').value.trim();
   const isActive = document.getElementById('round-active').checked;
 
-  if (!name) {
-    showToast('Enter a round name!', 'error');
-    return;
-  }
+  if (!name) { showToast('Enter a round name!', 'error'); return; }
 
-  console.log('Adding round:', name, isActive);
-
-  const { data, error } = await db.from('rounds').insert({ name, is_active: isActive }).select();
-
-  console.log('Insert result:', data, error);
-
-  if (error) {
-    showToast('Error: ' + error.message, 'error');
-    return;
-  }
+  const { error } = await db.from('rounds').insert({ name, is_active: isActive });
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
 
   document.getElementById('round-name').value = '';
   document.getElementById('round-active').checked = false;
@@ -130,7 +121,9 @@ async function deleteRound(roundId) {
   await loadAll();
 }
 
-// ---- MATCHES ----
+// ============================================
+// MATCHES
+// ============================================
 function populateRoundSelect() {
   const select = document.getElementById('match-round');
   if (!select) return;
@@ -174,7 +167,9 @@ function renderMatchesList() {
             <strong>${m.home_team} vs ${m.away_team}</strong>
             <small>${dateStr}</small>
           </div>
-          <button class="btn btn-danger btn-sm" onclick="deleteMatch(${m.id})">Delete</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteMatch(${m.id})">
+            Delete
+          </button>
         </div>`;
     });
   });
@@ -217,113 +212,268 @@ async function deleteMatch(matchId) {
   await loadAll();
 }
 
-// ---- RESULTS ----
+// ============================================
+// RESULTS — Always editable, live recalculation
+// Points: Perfect = 6pts, Correct outcome = 3pts, Wrong = 0pts
+// ============================================
 function renderResultsList() {
   const container = document.getElementById('results-list');
-  const unfinished = matchesCache.filter(m => !m.is_finished);
-  const finished = matchesCache.filter(m => m.is_finished);
-
-  let html = '';
-
-  if (unfinished.length > 0) {
-    html += `<div class="round-label"><h2>Pending Results</h2></div>`;
-    unfinished.forEach(m => {
-      const round = roundsCache.find(r => r.id === m.round_id);
-      html += `
-        <div class="admin-match-item">
-          <div class="admin-match-info">
-            <strong>${m.home_team} vs ${m.away_team}</strong>
-            <small>${round ? round.name : ''}</small>
-          </div>
-          <div class="score-form">
-            <input type="number" id="res-home-${m.id}" min="0" max="20" placeholder="0">
-            <span style="color:var(--text-muted)">–</span>
-            <input type="number" id="res-away-${m.id}" min="0" max="20" placeholder="0">
-            <button class="btn btn-primary btn-sm" onclick="saveResult(${m.id})">Save</button>
-          </div>
-        </div>`;
-    });
-  }
-
-  if (finished.length > 0) {
-    html += `<div class="round-label" style="margin-top:24px"><h2>Completed</h2></div>`;
-    finished.forEach(m => {
-      html += `
-        <div class="admin-match-item" style="opacity:0.6">
-          <div class="admin-match-info">
-            <strong>${m.home_team} vs ${m.away_team}</strong>
-            <small>✅ Final: ${m.home_score} – ${m.away_score}</small>
-          </div>
-        </div>`;
-    });
-  }
 
   if (matchesCache.length === 0) {
-    html = '<div class="empty-state"><p>No matches yet.</p></div>';
+    container.innerHTML = '<div class="empty-state"><p>No matches yet.</p></div>';
+    return;
   }
+
+  // Group by round
+  const byRound = {};
+  matchesCache.forEach(m => {
+    if (!byRound[m.round_id]) byRound[m.round_id] = [];
+    byRound[m.round_id].push(m);
+  });
+
+  let html = `
+    <!-- Points legend -->
+    <div class="card" style="margin-bottom:20px; display:flex; gap:16px; flex-wrap:wrap; align-items:center">
+      <span style="font-size:0.85rem; color:var(--text-muted)">Points system:</span>
+      <span class="result-badge exact">⚡ Perfect Score = 6pts</span>
+      <span class="result-badge correct">✓ Correct Outcome = 3pts</span>
+      <span class="result-badge wrong">✗ Wrong = 0pts</span>
+    </div>`;
+
+  roundsCache.forEach(r => {
+    const ms = byRound[r.id] || [];
+    if (ms.length === 0) return;
+
+    html += `<div class="round-label"><h2>${r.name}</h2></div>`;
+
+    ms.forEach(m => {
+      const isFinished = m.is_finished;
+      const currentHome = m.home_score ?? '';
+      const currentAway = m.away_score ?? '';
+
+      html += `
+        <div class="admin-match-item" style="flex-direction:column; align-items:stretch; gap:16px">
+
+          <!-- Match header -->
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px">
+            <div class="admin-match-info">
+              <strong>${m.home_team} vs ${m.away_team}</strong>
+              <small>
+                ${isFinished
+                  ? `✅ Current score: <strong>${m.home_score} – ${m.away_score}</strong>`
+                  : '⏳ Not started'}
+              </small>
+            </div>
+            ${isFinished ? `
+              <button class="btn btn-ghost btn-sm" onclick="unfinishMatch(${m.id})">
+                ↩ Revert to Upcoming
+              </button>` : ''}
+          </div>
+
+          <!-- Score input — always visible and editable -->
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+
+            <!-- Home score -->
+            <div style="display:flex; flex-direction:column; align-items:center; gap:6px">
+              <span style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase">
+                ${m.home_team}
+              </span>
+              <div style="display:flex; align-items:center; gap:6px">
+                <button class="stepper-btn" onclick="changeScore('res-home-${m.id}', -1)">−</button>
+                <input type="number" id="res-home-${m.id}"
+                       value="${currentHome}" min="0" max="20"
+                       style="width:60px; background:var(--dark); border:2px solid var(--green);
+                              border-radius:10px; padding:10px; color:var(--text);
+                              font-size:1.3rem; font-weight:800; text-align:center; outline:none">
+                <button class="stepper-btn" onclick="changeScore('res-home-${m.id}', 1)">+</button>
+              </div>
+            </div>
+
+            <span style="font-size:1.5rem; color:var(--text-muted); font-weight:800; 
+                         align-self:flex-end; padding-bottom:8px">–</span>
+
+            <!-- Away score -->
+            <div style="display:flex; flex-direction:column; align-items:center; gap:6px">
+              <span style="font-size:0.75rem; color:var(--text-muted); text-transform:uppercase">
+                ${m.away_team}
+              </span>
+              <div style="display:flex; align-items:center; gap:6px">
+                <button class="stepper-btn" onclick="changeScore('res-away-${m.id}', -1)">−</button>
+                <input type="number" id="res-away-${m.id}"
+                       value="${currentAway}" min="0" max="20"
+                       style="width:60px; background:var(--dark); border:2px solid var(--green);
+                              border-radius:10px; padding:10px; color:var(--text);
+                              font-size:1.3rem; font-weight:800; text-align:center; outline:none">
+                <button class="stepper-btn" onclick="changeScore('res-away-${m.id}', 1)">+</button>
+              </div>
+            </div>
+
+            <!-- Save button -->
+            <div style="align-self:flex-end; padding-bottom:4px; margin-left:auto">
+              <button class="btn btn-primary" onclick="saveResult(${m.id})" 
+                      id="save-btn-${m.id}">
+                ${isFinished ? '🔄 Update Score' : '🟢 Go Live'}
+              </button>
+            </div>
+
+          </div>
+        </div>`;
+    });
+  });
 
   container.innerHTML = html;
 }
 
+// ---- +/- stepper buttons ----
+function changeScore(inputId, delta) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const current = parseInt(input.value) || 0;
+  const newVal = Math.max(0, Math.min(20, current + delta));
+  input.value = newVal;
+}
+
+// ---- Save / update result ----
 async function saveResult(matchId) {
-  const homeScore = parseInt(document.getElementById(`res-home-${matchId}`).value);
-  const awayScore = parseInt(document.getElementById(`res-away-${matchId}`).value);
+  const homeInput = document.getElementById(`res-home-${matchId}`);
+  const awayInput = document.getElementById(`res-away-${matchId}`);
+  const btn = document.getElementById(`save-btn-${matchId}`);
+
+  const homeScore = parseInt(homeInput.value);
+  const awayScore = parseInt(awayInput.value);
 
   if (isNaN(homeScore) || isNaN(awayScore) || homeScore < 0 || awayScore < 0) {
     showToast('Enter valid scores!', 'error');
     return;
   }
 
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  // 1. Update match score
   const { error: matchError } = await db
     .from('matches')
     .update({ home_score: homeScore, away_score: awayScore, is_finished: true })
     .eq('id', matchId);
 
-  if (matchError) { showToast('Error: ' + matchError.message, 'error'); return; }
+  if (matchError) {
+    showToast('Error updating score: ' + matchError.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '🔄 Update Score';
+    return;
+  }
 
+  // 2. Get all predictions for this match
   const { data: preds } = await db
     .from('predictions')
-    .select('id, user_id, predicted_home, predicted_away')
+    .select('id, user_id, predicted_home, predicted_away, points_earned')
     .eq('match_id', matchId);
 
   if (!preds || preds.length === 0) {
-    showToast('Result saved! No predictions to score.');
+    showToast('Score saved! No predictions to recalculate.', 'success');
     await loadAll();
     return;
   }
 
-  const actualResult = Math.sign(homeScore - awayScore);
+  // 3. Recalculate points using NEW system
+  // Perfect score = 6pts, Correct outcome = 3pts, Wrong = 0pts
+  const actualResult = Math.sign(homeScore - awayScore); // -1, 0, or 1
 
   for (const p of preds) {
-    let points = 0;
-    if (p.predicted_home === homeScore && p.predicted_away === awayScore) {
-      points = 3;
+    // Calculate new points
+    let newPoints = 0;
+
+    const isPerfect = p.predicted_home === homeScore && p.predicted_away === awayScore;
+    const predResult = Math.sign(p.predicted_home - p.predicted_away);
+    const isCorrectOutcome = predResult === actualResult;
+
+    if (isPerfect) {
+      newPoints = 6; // Perfect score
+    } else if (isCorrectOutcome) {
+      newPoints = 3; // Correct outcome only
     } else {
-      const predResult = Math.sign(p.predicted_home - p.predicted_away);
-      if (predResult === actualResult) points = 1;
+      newPoints = 0; // Wrong
     }
 
-    await db.from('predictions').update({ points_earned: points }).eq('id', p.id);
+    const oldPoints = p.points_earned || 0;
+    const pointsDiff = newPoints - oldPoints;
 
-    if (points > 0) {
+    // Update prediction
+    await db
+      .from('predictions')
+      .update({ points_earned: newPoints })
+      .eq('id', p.id);
+
+    // Adjust user total by difference only (handles re-scoring correctly)
+    if (pointsDiff !== 0) {
       const { data: profile } = await db
         .from('profiles')
         .select('total_points')
         .eq('id', p.user_id)
         .single();
 
+      const newTotal = Math.max(0, (profile?.total_points || 0) + pointsDiff);
+
       await db
         .from('profiles')
-        .update({ total_points: (profile?.total_points || 0) + points })
+        .update({ total_points: newTotal })
         .eq('id', p.user_id);
     }
   }
 
-  showToast(`Result saved! ${preds.length} predictions scored ✅`);
+  showToast(`✅ Score saved! ${preds.length} predictions recalculated.`);
   await loadAll();
 }
 
-// ---- TOAST (local to admin since supabase var may not exist) ----
+// ---- Revert match to upcoming (unfinish) ----
+async function unfinishMatch(matchId) {
+  if (!confirm('This will revert the match to "upcoming" and REMOVE all points earned from it. Are you sure?')) return;
+
+  // Get predictions to remove their points
+  const { data: preds } = await db
+    .from('predictions')
+    .select('id, user_id, points_earned')
+    .eq('match_id', matchId);
+
+  // Remove points from each user
+  if (preds && preds.length > 0) {
+    for (const p of preds) {
+      if (p.points_earned > 0) {
+        const { data: profile } = await db
+          .from('profiles')
+          .select('total_points')
+          .eq('id', p.user_id)
+          .single();
+
+        const newTotal = Math.max(0, (profile?.total_points || 0) - p.points_earned);
+
+        await db
+          .from('profiles')
+          .update({ total_points: newTotal })
+          .eq('id', p.user_id);
+      }
+
+      // Reset prediction points to 0
+      await db
+        .from('predictions')
+        .update({ points_earned: 0 })
+        .eq('id', p.id);
+    }
+  }
+
+  // Revert match
+  await db
+    .from('matches')
+    .update({ home_score: null, away_score: null, is_finished: false })
+    .eq('id', matchId);
+
+  showToast('Match reverted to upcoming');
+  await loadAll();
+}
+
+// ============================================
+// TOAST
+// ============================================
 function showToast(msg, type = 'success') {
   const toast = document.getElementById('toast');
   if (!toast) return;
@@ -332,5 +482,4 @@ function showToast(msg, type = 'success') {
   setTimeout(() => { toast.className = 'toast'; }, 3000);
 }
 
-// ---- START ----
 init();
