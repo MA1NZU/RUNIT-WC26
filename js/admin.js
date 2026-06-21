@@ -30,7 +30,7 @@ function formatCairoDate(isoString) {
 function cairoInputToUTC(localDatetimeStr) {
   if (!localDatetimeStr) return null;
 
-  const CAIRO_OFFSET_HOURS = 2;
+  const CAIRO_OFFSET_HOURS = 3;
   const [datePart, timePart] = localDatetimeStr.split('T');
   const [year, month, day]   = datePart.split('-').map(Number);
   const [hour, minute]       = timePart.split(':').map(Number);
