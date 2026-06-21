@@ -353,6 +353,13 @@ function renderMatches(rounds, predMap) {
           </div>`;
       }
 
+      // Sort matches by date inside each round (earliest first)
+    round.matches.sort((a, b) => {
+      if (!a.match_date) return 1;
+      if (!b.match_date) return -1;
+      return new Date(a.match_date) - new Date(b.match_date);
+    });
+
       // ---- Admin live score editor ----
       const adminEditor = isAdmin && isFinished ? `
         <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:14px">
