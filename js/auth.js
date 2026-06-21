@@ -77,15 +77,26 @@ async function handleLogin(e) {
   }
 }
 
-// ---- Signup ----
 async function handleSignup(e) {
   e.preventDefault();
   const username = document.getElementById('signup-username').value.trim();
-  const email = document.getElementById('signup-email').value;
+  const email    = document.getElementById('signup-email').value.trim();
   const password = document.getElementById('signup-password').value;
-  const btn = document.getElementById('signup-btn');
+  const confirm  = document.getElementById('signup-confirm').value;
+  const btn      = document.getElementById('signup-btn');
 
-  btn.disabled = true;
+  // Validate
+  if (!username || username.length < 2) {
+    showError('Display name must be at least 2 characters.');
+    return;
+  }
+
+  if (password !== confirm) {
+    showError('Passwords do not match!');
+    return;
+  }
+
+  btn.disabled    = true;
   btn.textContent = 'Creating account...';
   hideMessages();
 
@@ -97,11 +108,11 @@ async function handleSignup(e) {
 
   if (error) {
     showError(error.message);
-    btn.disabled = false;
+    btn.disabled    = false;
     btn.textContent = 'Create Account';
   } else {
     showSuccess('Account created! You can now login.');
-    btn.disabled = false;
+    btn.disabled    = false;
     btn.textContent = 'Create Account';
     switchTab('login');
   }
