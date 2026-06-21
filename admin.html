@@ -10,7 +10,7 @@
 <body>
 
 <nav>
-  <a href="predict.html" class="nav-logo">RUNIT WC26</a>
+  <a href="predict.html" class="nav-logo">RUNIT <span style="color:#fff">WC26</span></a>
   <div class="nav-links">
     <a href="predict.html">← Back to Site</a>
     <a href="#" onclick="logout()">Logout</a>
@@ -35,11 +35,14 @@
       <h3 style="margin-bottom:20px">Add New Round</h3>
       <div class="form-group">
         <label>Round Name</label>
-        <input type="text" id="round-name" placeholder="e.g. Matchday 1, Quarter Final...">
+        <input type="text" id="round-name"
+               placeholder="e.g. Matchday 1, Quarter Final...">
       </div>
       <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px">
-        <input type="checkbox" id="round-active" style="width:auto; accent-color:var(--green)">
-        <label for="round-active" style="margin:0; text-transform:none; font-size:0.95rem; cursor:pointer">
+        <input type="checkbox" id="round-active"
+               style="width:auto; accent-color:var(--green)">
+        <label for="round-active"
+               style="margin:0; text-transform:none; font-size:0.95rem; cursor:pointer">
           Set as active round (shown to users)
         </label>
       </div>
@@ -68,10 +71,14 @@
       </div>
       <div class="form-group">
         <label>Match Date & Time (Cairo Time 🇪🇬)</label>
-        <input type="datetime-local" id="match-date">
-        <small style="color:var(--text-muted); font-size:0.78rem; margin-top:6px; display:block">
-          ⏰ Enter the time in Cairo local time (EET/EEST). It will be stored correctly.
-        </small>
+        <input type="datetime-local" id="match-date"
+               oninput="previewCairoTime(this.value)">
+        <div id="cairo-preview"
+             style="margin-top:8px; font-size:0.82rem; color:var(--green);
+                    display:none; background:rgba(0,200,83,0.08);
+                    border:1px solid rgba(0,200,83,0.2);
+                    border-radius:8px; padding:8px 12px">
+        </div>
       </div>
       <button class="btn btn-primary" onclick="addMatch()">Add Match</button>
     </div>
@@ -80,10 +87,11 @@
 
   <!-- RESULTS -->
   <div class="admin-section" id="section-results">
-    <div class="card" style="margin-bottom:16px; display:flex; gap:16px; flex-wrap:wrap; align-items:center">
+    <div class="card" style="margin-bottom:16px; display:flex;
+         gap:16px; flex-wrap:wrap; align-items:center">
       <span style="font-size:0.85rem; color:var(--text-muted)">Points system:</span>
-      <span class="result-badge exact">⚡ Perfect Score = 6pts (×2 with Joker = 12pts)</span>
-      <span class="result-badge correct">✓ Correct Outcome = 3pts (×2 with Joker = 6pts)</span>
+      <span class="result-badge exact">⚡ Perfect = 6pts (×2 Joker = 12pts)</span>
+      <span class="result-badge correct">✓ Correct = 3pts (×2 Joker = 6pts)</span>
       <span class="result-badge wrong">✗ Wrong = 0pts</span>
     </div>
     <div id="results-list"></div>
