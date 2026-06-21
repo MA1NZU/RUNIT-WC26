@@ -293,7 +293,7 @@ function renderMatches(rounds, predMap) {
             hour:     '2-digit',
             minute:   '2-digit',
             hour12:   false
-          }) + ' 🇪🇬'
+          }) + ''
         : 'Date TBD';
 
       // ---- Status / countdown ----
