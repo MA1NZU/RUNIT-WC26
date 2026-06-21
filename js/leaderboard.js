@@ -2,14 +2,24 @@
 // LEADERBOARD.JS
 // ============================================
 
+// Create our own db client
+const _lbDb = window.supabase.createClient(
+  'https://bpmmimvlwuokipawabrk.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k'
+);
+
 async function init() {
-  const session = await requireAuth();
-  if (!session) return;
+  // Check session
+  const { data: { session } } = await _lbDb.auth.getSession();
+  if (!session) {
+    window.location.href = 'login.html';
+    return;
+  }
 
   const currentUserId = session.user.id;
 
   // Single query - get all profiles sorted by points
-  const { data: profiles, error } = await supabase
+  const { data: profiles, error } = await _lbDb
     .from('profiles')
     .select('id, username, total_points')
     .order('total_points', { ascending: false })
@@ -17,7 +27,9 @@ async function init() {
 
   if (error || !profiles) {
     document.getElementById('leaderboard-container').innerHTML = `
-      <div class="empty-state"><p>Error loading leaderboard.</p></div>`;
+      <div class="empty-state">
+        <p>Error loading leaderboard: ${error?.message}</p>
+      </div>`;
     return;
   }
 
@@ -44,7 +56,6 @@ async function init() {
   profiles.forEach((profile, index) => {
     const rank = index + 1;
     const isMe = profile.id === currentUserId;
-
     const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : 'rank-other';
     const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
 
