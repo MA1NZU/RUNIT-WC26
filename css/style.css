@@ -31,6 +31,7 @@ body {
   min-height: 100vh;
 }
 
+/* ---- NAVBAR ---- */
 nav {
   background: var(--dark-2);
   border-bottom: 2px solid var(--green);
@@ -77,6 +78,7 @@ nav {
 
 .nav-links a.active {
   color: var(--green);
+}
 
 /* ---- MAIN CONTAINER ---- */
 .container {
@@ -659,30 +661,6 @@ nav {
   font-size: 1rem;
 }
 
-/* ---- STEPPER BUTTONS (admin score +/-) ---- */
-.stepper-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--dark-3);
-  color: var(--text);
-  font-size: 1.2rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  line-height: 1;
-}
-
-.stepper-btn:hover {
-  background: var(--green);
-  color: #000;
-  border-color: var(--green);
-}
-
 /* ---- LOADING ---- */
 .loading {
   text-align: center;
@@ -737,17 +715,6 @@ nav {
 .toast.error {
   border-color: var(--red);
   color: var(--red);
-}
-
-/* ---- MODAL ANIMATIONS ---- */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ---- RESPONSIVE ---- */
