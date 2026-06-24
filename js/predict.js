@@ -208,6 +208,38 @@ function renderStats(points, predicted) {
   document.getElementById('stat-rank').textContent    = '–';
 }
 
+async function subscribeToNotifications() {
+  const btn = document.getElementById('notif-btn');
+
+  try {
+    await OneSignal.Notifications.requestPermission();
+    const isSubscribed = await OneSignal.User.PushSubscription.optedIn;
+
+    if (isSubscribed) {
+      btn.textContent = '🔔 Subscribed!';
+      btn.style.color = 'var(--green)';
+      btn.disabled    = true;
+      showToast('You will now receive match notifications!');
+    }
+  } catch (e) {
+    showToast('Could not enable notifications', 'error');
+  }
+}
+
+// Check if already subscribed on load
+async function checkNotifStatus() {
+  if (typeof OneSignal === 'undefined') return;
+  try {
+    const isSubscribed = await OneSignal.User.PushSubscription.optedIn;
+    const btn = document.getElementById('notif-btn');
+    if (btn && isSubscribed) {
+      btn.textContent = '🔔 Subscribed';
+      btn.style.color = 'var(--green)';
+      btn.disabled    = true;
+    }
+  } catch(e) {}
+}
+
 // ============================================
 // RENDER MATCHES
 // ============================================
