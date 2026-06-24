@@ -301,7 +301,7 @@ function renderMatches(rounds, predMap) {
       if (isFinished) {
         statusHtml = `
           <div class="match-date" style="color:var(--green)">
-            🟢 Live &nbsp;|&nbsp;
+            🟢 Live
             <strong>${match.home_score} – ${match.away_score}</strong>
           </div>`;
       } else if (hasDate) {
