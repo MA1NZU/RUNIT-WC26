@@ -301,7 +301,7 @@ function renderMatches(rounds, predMap) {
       if (isFinished) {
         statusHtml = `
           <div class="match-date" style="color:var(--green)">
-            🟢 Live;
+            🟢 Live </div>`;
       } else if (hasDate) {
         const initialText = isKickedOff
           ? '🔴 LIVE'
