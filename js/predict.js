@@ -8,7 +8,11 @@ let jokerMatchId   = null;
 let jokerRoundId   = null;
 let currentRoundId = null;
 
-const _predictDb = _db; // use shared client from auth.js
+// Use shared client from auth.js, with fallback
+const _predictDb = (typeof _db !== 'undefined') ? _db : window.supabase.createClient(
+  'https://bpmmimvlwuokipawabrk.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k'
+);
 
 // Match duration before showing FINAL (2hrs 5min in ms)
 const MATCH_DURATION_MS = (2 * 60 + 5) * 60 * 1000;
