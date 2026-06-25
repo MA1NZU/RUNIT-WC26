@@ -167,7 +167,7 @@ function startCountdownTicker() {
         } else {
           // Still within match duration — show LIVE + elapsed
           const elapsed   = formatElapsed(sinceKick);
-          el.textContent  = `🔴 LIVE ${elapsed}`;
+          el.textContent  = `🔴 LIVE | ${elapsed}`;
           el.style.color  = 'var(--red)';
         }
         lockMatchCard(matchId);
