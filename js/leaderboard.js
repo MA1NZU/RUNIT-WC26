@@ -292,7 +292,7 @@ async function openPlayerModal(userId, username) {
           <!-- Date -->
           <div style="text-align:center; font-size:0.75rem;
                color:var(--text-muted); margin-bottom:10px">
-            ${dateStr} 🇪🇬
+            ${dateStr} 
           </div>
 
           <!-- Prediction + result -->
