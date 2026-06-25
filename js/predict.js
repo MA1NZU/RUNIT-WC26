@@ -186,10 +186,7 @@ function startCountdownTicker() {
 // Format elapsed time since kickoff (e.g. "45'")
 function formatElapsed(ms) {
   const totalMinutes = Math.floor(ms / 60000);
-  const hours        = Math.floor(totalMinutes / 60);
-  const minutes      = totalMinutes % 60;
-  if (hours > 0) return `${hours}h ${minutes}'`;
-  return `${minutes}'`;
+  return `${totalMinutes}'`;
 }
 
 function formatCountdown(ms) {
