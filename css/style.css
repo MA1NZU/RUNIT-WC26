@@ -433,6 +433,7 @@ nav {
   margin-top: 16px;
 }
 
+/* ---- RESULT BADGES ---- */
 .result-badge {
   display: inline-flex;
   align-items: center;
@@ -443,18 +444,21 @@ nav {
   font-weight: 700;
 }
 
+/* Perfect score — GOLD/YELLOW */
 .result-badge.exact {
-  background: rgba(0, 200, 83, 0.15);
+  background: rgba(255, 215, 0, 0.15);
+  color: var(--gold);
+  border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+/* Correct outcome — GREEN */
+.result-badge.correct {
+  background: rgba(0, 200, 83, 0.12);
   color: var(--green);
   border: 1px solid rgba(0, 200, 83, 0.3);
 }
 
-.result-badge.correct {
-  background: rgba(255, 215, 0, 0.15);
-  color: var(--gold);
-  border: 1px solid rgba(255, 215, 0, 0.3);
-}
-
+/* Wrong — RED */
 .result-badge.wrong {
   background: rgba(255, 23, 68, 0.1);
   color: var(--red);
