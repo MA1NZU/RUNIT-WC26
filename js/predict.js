@@ -56,7 +56,7 @@ async function init() {
 
   const greeting = document.getElementById('user-greeting');
   if (greeting) {
-    greeting.textContent = `Welcome back, ${currentProfile?.username || 'Player'} 👋`;
+    greeting.textContent = `Welcome back, ${currentProfile?.username || 'Player'}`;
   }
 
   const rounds = roundsRes.data || [];
@@ -325,7 +325,7 @@ function renderMatches(rounds, predMap) {
             hour:     '2-digit',
             minute:   '2-digit',
             hour12:   false
-          }) + ' 🇪🇬'
+          }) + ''
         : 'Date TBD';
 
       // ---- Status label ----
