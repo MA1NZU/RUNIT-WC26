@@ -1,17 +1,17 @@
 // ============================================
-// PREDICT.JS — Full version
+// PREDICT.JS — Live/Final timing + admin override
 // ============================================
 
-let currentUser   = null;
+let currentUser    = null;
 let currentProfile = null;
-let jokerMatchId  = null;
-let jokerRoundId  = null;
+let jokerMatchId   = null;
+let jokerRoundId   = null;
 let currentRoundId = null;
 
-const _predictDb = window.supabase.createClient(
-  'https://bpmmimvlwuokipawabrk.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJwbW1pbXZsd3Vva2lwYXdhYnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjE5NTMsImV4cCI6MjA5NzQzNzk1M30.U9S3vUNhyuqqirMNdamRBqdh67JbHNatBkQvdF3qu3k'
-);
+const _predictDb = _db; // use shared client from auth.js
+
+// Match duration before showing FINAL (2hrs 5min in ms)
+const MATCH_DURATION_MS = (2 * 60 + 5) * 60 * 1000;
 
 // ============================================
 // INIT
@@ -25,13 +25,12 @@ async function init() {
 
   currentUser = session.user;
 
-  // Show admin button if admin
   if (typeof ADMIN_IDS !== 'undefined' && ADMIN_IDS.includes(currentUser.id)) {
     const adminBtn = document.getElementById('admin-nav-btn');
     if (adminBtn) adminBtn.style.display = 'inline-flex';
   }
 
-  const [profileRes, roundsRes] = await Promise.all([
+  const [profileRes, roundsRes, allProfilesRes] = await Promise.all([
     _predictDb
       .from('profiles')
       .select('username, total_points')
@@ -41,14 +40,19 @@ async function init() {
       .from('rounds')
       .select('id, name, matches(id, home_team, away_team, match_date, home_score, away_score, is_finished)')
       .eq('is_active', true)
-      .order('id')
+      .order('id'),
+    _predictDb
+      .from('profiles')
+      .select('id, total_points')
+      .order('total_points', { ascending: false })
   ]);
 
-  currentProfile = profileRes.data;
+  currentProfile    = profileRes.data;
+  const allProfiles = allProfilesRes.data || [];
 
   const greeting = document.getElementById('user-greeting');
   if (greeting) {
-    greeting.textContent = `Welcome back, ${currentProfile?.username || 'Player'}`;
+    greeting.textContent = `Welcome back, ${currentProfile?.username || 'Player'} 👋`;
   }
 
   const rounds = roundsRes.data || [];
@@ -59,11 +63,10 @@ async function init() {
         <div class="empty-icon">🏟️</div>
         <p>No active rounds yet. Check back soon!</p>
       </div>`;
-    renderStats(currentProfile?.total_points || 0, 0);
+    renderStats(currentProfile?.total_points || 0, 0, allProfiles);
     return;
   }
 
-  // Store current round id
   currentRoundId = rounds[0]?.id || null;
 
   const matchIds = rounds.flatMap(r => (r.matches || []).map(m => m.id));
@@ -74,11 +77,10 @@ async function init() {
         <div class="empty-icon">📋</div>
         <p>No matches scheduled yet.</p>
       </div>`;
-    renderStats(currentProfile?.total_points || 0, 0);
+    renderStats(currentProfile?.total_points || 0, 0, allProfiles);
     return;
   }
 
-  // Load predictions + joker in parallel
   const [predsRes, jokerRes] = await Promise.all([
     _predictDb
       .from('predictions')
@@ -96,17 +98,15 @@ async function init() {
   const predMap = {};
   (predsRes.data || []).forEach(p => { predMap[p.match_id] = p; });
 
-  // Store joker — force numbers to avoid type mismatch
   if (jokerRes.data) {
     jokerMatchId = Number(jokerRes.data.match_id);
     jokerRoundId = Number(jokerRes.data.round_id);
   }
 
-  // Auto kickoff matches past their start time
   await autoKickoffMatches(rounds);
 
   renderMatches(rounds, predMap);
-  renderStats(currentProfile?.total_points || 0, predsRes.data?.length || 0);
+  renderStats(currentProfile?.total_points || 0, predsRes.data?.length || 0, allProfiles);
   startCountdownTicker();
 }
 
@@ -123,8 +123,8 @@ async function autoKickoffMatches(rounds) {
         const { error } = await _predictDb
           .from('matches')
           .update({
-            home_score: match.home_score ?? 0,
-            away_score: match.away_score ?? 0,
+            home_score:  match.home_score ?? 0,
+            away_score:  match.away_score ?? 0,
             is_finished: true
           })
           .eq('id', match.id)
@@ -141,7 +141,7 @@ async function autoKickoffMatches(rounds) {
 }
 
 // ============================================
-// COUNTDOWN TICKER
+// COUNTDOWN TICKER — runs every second
 // ============================================
 function startCountdownTicker() {
   setInterval(() => {
@@ -149,24 +149,43 @@ function startCountdownTicker() {
     const oneHour = 60 * 60 * 1000;
 
     document.querySelectorAll('[data-kickoff]').forEach(el => {
-      const matchId = el.dataset.matchid;
-      const kickoff = new Date(el.dataset.kickoff);
-      const diff    = kickoff - now;
+      const matchId   = el.dataset.matchid;
+      const kickoff   = new Date(el.dataset.kickoff);
+      const diff      = kickoff - now;
+      const sinceKick = now - kickoff; // how long since kickoff
 
       if (diff <= 0) {
-        el.textContent    = '🔴 LIVE';
-        el.style.color    = 'var(--red)';
+        // Match has kicked off
+        if (sinceKick >= MATCH_DURATION_MS) {
+          // 2h05m has passed — show FINAL
+          el.textContent = '🏁 FINAL';
+          el.style.color = 'var(--text-muted)';
+        } else {
+          // Still within match duration — show LIVE + elapsed
+          const elapsed   = formatElapsed(sinceKick);
+          el.textContent  = `🔴 LIVE ${elapsed}`;
+          el.style.color  = 'var(--red)';
+        }
         lockMatchCard(matchId);
       } else if (diff <= oneHour) {
-        el.textContent    = `🔒 Locked — kicks off in ${formatCountdown(diff)}`;
-        el.style.color    = 'var(--gold)';
+        el.textContent = `🔒 Locked — kicks off in ${formatCountdown(diff)}`;
+        el.style.color = 'var(--gold)';
         lockMatchCard(matchId);
       } else {
-        el.textContent    = `⏱ ${formatCountdown(diff)}`;
-        el.style.color    = 'var(--text-muted)';
+        el.textContent = `⏱ ${formatCountdown(diff)}`;
+        el.style.color = 'var(--text-muted)';
       }
     });
   }, 1000);
+}
+
+// Format elapsed time since kickoff (e.g. "45'")
+function formatElapsed(ms) {
+  const totalMinutes = Math.floor(ms / 60000);
+  const hours        = Math.floor(totalMinutes / 60);
+  const minutes      = totalMinutes % 60;
+  if (hours > 0) return `${hours}h ${minutes}'`;
+  return `${minutes}'`;
 }
 
 function formatCountdown(ms) {
@@ -201,11 +220,18 @@ function lockMatchCard(matchId) {
 // ============================================
 // RENDER STATS
 // ============================================
-function renderStats(points, predicted) {
-  document.getElementById('stats-bar').style.display = 'grid';
-  document.getElementById('stat-points').textContent  = points;
+function renderStats(points, predicted, allProfiles) {
+  document.getElementById('stats-bar').style.display   = 'grid';
+  document.getElementById('stat-points').textContent   = points;
   document.getElementById('stat-predicted').textContent = predicted;
-  document.getElementById('stat-rank').textContent    = '–';
+
+  if (allProfiles && allProfiles.length > 0) {
+    const sorted = [...allProfiles].sort((a, b) => b.total_points - a.total_points);
+    const rank   = sorted.findIndex(p => p.id === currentUser.id) + 1;
+    document.getElementById('stat-rank').textContent = rank > 0 ? `#${rank}` : '#–';
+  } else {
+    document.getElementById('stat-rank').textContent = '#–';
+  }
 }
 
 // ============================================
@@ -259,7 +285,7 @@ function renderMatches(rounds, predMap) {
   rounds.forEach(round => {
     if (!round.matches || round.matches.length === 0) return;
 
-    // Sort matches by date — earliest first
+    // Sort by date
     round.matches.sort((a, b) => {
       if (!a.match_date) return 1;
       if (!b.match_date) return -1;
@@ -274,16 +300,18 @@ function renderMatches(rounds, predMap) {
       const hasDate            = !!match.match_date;
       const matchTime          = hasDate ? new Date(match.match_date) : null;
       const msUntilKickoff     = matchTime ? matchTime - now : Infinity;
+      const msSinceKickoff     = matchTime ? now - matchTime : 0;
       const isWithinLockWindow = hasDate && msUntilKickoff <= oneHour;
       const isKickedOff        = hasDate && msUntilKickoff <= 0;
+      const isFinal            = isFinished && isKickedOff && msSinceKickoff >= MATCH_DURATION_MS;
+      const isLive             = isFinished && isKickedOff && msSinceKickoff < MATCH_DURATION_MS;
       const isLocked           = isFinished || isWithinLockWindow;
 
-      // ✅ Force number comparison — this is the joker fix
       const isJokerOnThisMatch = jokerMatchId !== null
         && Number(jokerMatchId) === Number(match.id);
       const canPlaceJoker = !jokerUsed && !isLocked;
 
-      // ---- Date string in Cairo time ----
+      // ---- Date string ----
       const dateStr = hasDate
         ? new Date(match.match_date).toLocaleString('en-GB', {
             timeZone: 'Africa/Cairo',
@@ -293,18 +321,48 @@ function renderMatches(rounds, predMap) {
             hour:     '2-digit',
             minute:   '2-digit',
             hour12:   false
-          }) + ''
+          }) + ' 🇪🇬'
         : 'Date TBD';
 
-      // ---- Status / countdown ----
+      // ---- Status label ----
       let statusHtml = '';
-      if (isFinished) {
-        statusHtml = `
-          <div class="match-date" style="color:var(--green)">
-            🟢 Live </div>`;
-      } else if (hasDate) {
+
+      if (isFinished && hasDate) {
+        if (isFinal) {
+          // Past 2h05m — show FINAL
+          statusHtml = `
+            <div class="match-date"
+                 data-kickoff="${match.match_date}"
+                 data-matchid="${match.id}"
+                 style="color:var(--text-muted); font-weight:600">
+              🏁 FINAL
+            </div>
+            <div class="match-date" style="font-size:0.78rem; margin-top:2px; color:var(--text-muted)">
+              ${dateStr}
+            </div>`;
+        } else if (isLive) {
+          // Within 2h05m — show LIVE + elapsed
+          const elapsed = formatElapsed(msSinceKickoff);
+          statusHtml = `
+            <div class="match-date"
+                 data-kickoff="${match.match_date}"
+                 data-matchid="${match.id}"
+                 style="color:var(--red); font-weight:700">
+              🔴 LIVE ${elapsed}
+            </div>
+            <div class="match-date" style="font-size:0.78rem; margin-top:2px; color:var(--text-muted)">
+              ${dateStr}
+            </div>`;
+        } else {
+          // Finished but no date context
+          statusHtml = `
+            <div class="match-date" style="color:var(--text-muted); font-weight:600">
+              🏁 FINAL
+            </div>`;
+        }
+      } else if (!isFinished && hasDate) {
         const initialText = isKickedOff
-          ? '🔴 LIVE'
+          ? `🔴 LIVE 0'`
           : isWithinLockWindow
             ? `🔒 Locked — kicks off in ${formatCountdown(msUntilKickoff)}`
             : `⏱ ${formatCountdown(msUntilKickoff)}`;
@@ -322,7 +380,7 @@ function renderMatches(rounds, predMap) {
                style="color:${initialColor}; font-weight:600">
             ${initialText}
           </div>
-          <div class="match-date" style="color:var(--text-muted); font-size:0.78rem; margin-top:2px">
+          <div class="match-date" style="font-size:0.78rem; margin-top:2px; color:var(--text-muted)">
             ${dateStr}
           </div>`;
       } else {
@@ -342,15 +400,28 @@ function renderMatches(rounds, predMap) {
       // ---- Result badge ----
       let resultBadge = '';
       if (isFinished && pred !== undefined) {
-        const pts = pred ? pred.points_earned : 0;
-        if (pts === 12) {
-          resultBadge = `<span class="result-badge exact">⚡ Perfect! +12pts 🃏</span>`;
-        } else if (pts === 6 && isJokerOnThisMatch) {
-          resultBadge = `<span class="result-badge correct">✓ Correct outcome +6pts 🃏</span>`;
-        } else if (pts === 6) {
-          resultBadge = `<span class="result-badge exact">⚡ Perfect! +6pts</span>`;
-        } else if (pts === 3) {
-          resultBadge = `<span class="result-badge correct">✓ Correct outcome +3pts</span>`;
+        const pts        = pred ? pred.points_earned : 0;
+        const isPerfect  = pred
+          && pred.predicted_home === match.home_score
+          && pred.predicted_away === match.away_score;
+        const actualOut  = Math.sign(match.home_score - match.away_score);
+        const predOut    = pred
+          ? Math.sign(pred.predicted_home - pred.predicted_away)
+          : null;
+        const isCorrect  = pred && predOut === actualOut;
+
+        if (!pred) {
+          resultBadge = `<span class="result-badge wrong">— No prediction</span>`;
+        } else if (isPerfect) {
+          resultBadge = `
+            <span class="result-badge exact">
+              ⚡ Perfect! +${pts}pts${isJokerOnThisMatch ? ' 🃏' : ''}
+            </span>`;
+        } else if (isCorrect) {
+          resultBadge = `
+            <span class="result-badge correct">
+              ✓ Correct +${pts}pts${isJokerOnThisMatch ? ' 🃏' : ''}
+            </span>`;
         } else {
           resultBadge = `<span class="result-badge wrong">✗ Wrong • 0pts</span>`;
         }
@@ -390,68 +461,88 @@ function renderMatches(rounds, predMap) {
           </div>`;
       }
 
-      // ---- Admin live score editor ----
+      // ---- Admin: score editor (always visible for finished matches) ----
       const adminEditor = isAdmin && isFinished ? `
-        <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:14px">
-          <p style="text-align:center; font-size:0.78rem; color:var(--text-muted); margin-bottom:10px">
-            ⚙️ Admin — Update Live Score
+        <div style="border-top:1px solid var(--border);
+             margin-top:16px; padding-top:14px">
+          <p style="text-align:center; font-size:0.78rem;
+               color:var(--text-muted); margin-bottom:10px">
+            ⚙️ Admin — Update Score
           </p>
-          <div style="display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap">
+          <div style="display:flex; align-items:center;
+               justify-content:center; gap:10px; flex-wrap:wrap">
             <input type="number" id="live-home-${match.id}"
                    value="${match.home_score ?? 0}" min="0" max="20"
                    style="width:56px; background:var(--dark);
                           border:2px solid var(--green); border-radius:8px;
-                          padding:8px; color:var(--text);
-                          font-size:1.2rem; font-weight:800;
-                          text-align:center; outline:none">
-            <span style="color:var(--text-muted); font-size:1.3rem; font-weight:800">–</span>
+                          padding:8px; color:var(--text); font-size:1.2rem;
+                          font-weight:800; text-align:center; outline:none">
+            <span style="color:var(--text-muted);
+                         font-size:1.3rem; font-weight:800">–</span>
             <input type="number" id="live-away-${match.id}"
                    value="${match.away_score ?? 0}" min="0" max="20"
                    style="width:56px; background:var(--dark);
                           border:2px solid var(--green); border-radius:8px;
-                          padding:8px; color:var(--text);
-                          font-size:1.2rem; font-weight:800;
-                          text-align:center; outline:none">
-            <button class="btn btn-primary btn-sm" onclick="updateLiveScore(${match.id})">
+                          padding:8px; color:var(--text); font-size:1.2rem;
+                          font-weight:800; text-align:center; outline:none">
+            <button class="btn btn-primary btn-sm"
+                    onclick="updateLiveScore(${match.id})">
               🔄 Update
+            </button>
+          </div>
+
+          <!-- Admin: extend match time if it runs longer -->
+          <div style="margin-top:10px; text-align:center">
+            <button class="btn btn-ghost btn-sm"
+                    onclick="extendMatch(${match.id}, '${match.match_date}')"
+                    style="font-size:0.78rem; color:var(--text-muted)">
+              ⏱ Match running longer? Extend FINAL timer
             </button>
           </div>
         </div>` : '';
 
-      // ---- Admin go-live button ----
+      // ---- Admin go-live ----
       const adminGoLive = isAdmin && !isFinished && isKickedOff ? `
-        <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:14px">
-          <p style="text-align:center; font-size:0.78rem; color:var(--text-muted); margin-bottom:10px">
+        <div style="border-top:1px solid var(--border);
+             margin-top:16px; padding-top:14px">
+          <p style="text-align:center; font-size:0.78rem;
+               color:var(--text-muted); margin-bottom:10px">
             ⚙️ Admin — Set Opening Score
           </p>
-          <div style="display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap">
+          <div style="display:flex; align-items:center;
+               justify-content:center; gap:10px; flex-wrap:wrap">
             <input type="number" id="live-home-${match.id}"
                    value="0" min="0" max="20"
                    style="width:56px; background:var(--dark);
                           border:2px solid var(--green); border-radius:8px;
-                          padding:8px; color:var(--text);
-                          font-size:1.2rem; font-weight:800;
-                          text-align:center; outline:none">
-            <span style="color:var(--text-muted); font-size:1.3rem; font-weight:800">–</span>
+                          padding:8px; color:var(--text); font-size:1.2rem;
+                          font-weight:800; text-align:center; outline:none">
+            <span style="color:var(--text-muted);
+                         font-size:1.3rem; font-weight:800">–</span>
             <input type="number" id="live-away-${match.id}"
                    value="0" min="0" max="20"
                    style="width:56px; background:var(--dark);
                           border:2px solid var(--green); border-radius:8px;
-                          padding:8px; color:var(--text);
-                          font-size:1.2rem; font-weight:800;
-                          text-align:center; outline:none">
-            <button class="btn btn-primary btn-sm" onclick="updateLiveScore(${match.id})">
+                          padding:8px; color:var(--text); font-size:1.2rem;
+                          font-weight:800; text-align:center; outline:none">
+            <button class="btn btn-primary btn-sm"
+                    onclick="updateLiveScore(${match.id})">
               🟢 Go Live
             </button>
           </div>
         </div>` : '';
 
-      // ---- Gold border for joker match ----
       const jokerStyle = isJokerOnThisMatch
         ? 'border-color:var(--gold); box-shadow:0 0 16px rgba(255,215,0,0.12);'
         : '';
 
-      // ---- Full card ----
+      // ---- Score display in VS badge ----
+      const vsBadgeContent = isFinished
+        ? `<span style="color:var(--green); font-size:1rem; font-weight:800">
+             ${match.home_score}–${match.away_score}
+           </span>`
+        : 'VS';
+
       html += `
         <div class="match-card ${isLocked ? 'locked' : ''} ${pred ? 'saved' : ''}"
              id="match-${match.id}"
@@ -470,13 +561,7 @@ function renderMatches(rounds, predMap) {
             <div class="team">
               <div class="team-name home">${match.home_team}</div>
             </div>
-            <div class="vs-badge">
-              ${isFinished
-                ? `<span style="color:var(--green); font-size:1rem; font-weight:800">
-                     ${match.home_score}–${match.away_score}
-                   </span>`
-                : 'VS'}
-            </div>
+            <div class="vs-badge">${vsBadgeContent}</div>
             <div class="team">
               <div class="team-name away">${match.away_team}</div>
             </div>
@@ -507,7 +592,9 @@ function renderMatches(rounds, predMap) {
             </div>
           ` : `
             <div style="text-align:center; padding:8px 0">
-              <span style="color:var(--text-muted); font-size:0.9rem">Your pick: </span>
+              <span style="color:var(--text-muted); font-size:0.9rem">
+                Your pick:
+              </span>
               <strong>
                 ${pred
                   ? `${pred.predicted_home} – ${pred.predicted_away}`
@@ -535,6 +622,40 @@ function renderMatches(rounds, predMap) {
 }
 
 // ============================================
+// ADMIN: EXTEND MATCH TIME
+// Shows a prompt to add extra minutes to the FINAL timer
+// ============================================
+function extendMatch(matchId, matchDate) {
+  const extra = prompt(
+    'How many extra minutes do you want to add before showing FINAL?\n(e.g. type 30 for 30 extra minutes)',
+    '30'
+  );
+
+  if (extra === null) return; // cancelled
+  const extraMins = parseInt(extra);
+  if (isNaN(extraMins) || extraMins <= 0) {
+    alert('Please enter a valid number of minutes.');
+    return;
+  }
+
+  // Store the extended kickoff time in sessionStorage
+  // (resets when page is refreshed — that's fine, admin can re-extend)
+  const originalKickoff  = new Date(matchDate);
+  const extendedKickoff  = new Date(originalKickoff.getTime() - (extraMins * 60 * 1000));
+  sessionStorage.setItem(`extend-${matchId}`, extendedKickoff.toISOString());
+
+  // Update the data-kickoff attribute live
+  const countdownEl = document.querySelector(`[data-matchid="${matchId}"]`);
+  if (countdownEl) {
+    countdownEl.dataset.kickoff = extendedKickoff.toISOString();
+    countdownEl.textContent     = `🔴 LIVE (extended +${extraMins}')`;
+    countdownEl.style.color     = 'var(--red)';
+  }
+
+  showToast(`⏱ Extended by ${extraMins} minutes!`);
+}
+
+// ============================================
 // SAVE PREDICTION
 // ============================================
 async function savePrediction(matchId) {
@@ -555,7 +676,7 @@ async function savePrediction(matchId) {
     return;
   }
 
-  // Double-check not locked
+  // Double check not locked
   const kickoffEl = document.querySelector(`[data-matchid="${matchId}"]`);
   if (kickoffEl) {
     const kickoff = new Date(kickoffEl.dataset.kickoff);
@@ -663,7 +784,6 @@ async function updateLiveScore(matchId) {
     return;
   }
 
-  // Get jokers for this match
   const { data: jokers } = await _predictDb
     .from('jokers')
     .select('user_id')
