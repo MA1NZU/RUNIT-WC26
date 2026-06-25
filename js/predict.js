@@ -260,7 +260,7 @@ function renderMatches(rounds, predMap) {
     });
   }
 
-  let html = '';
+  let html = ' ';
 
   // ---- Joker banner ----
   html += `
