@@ -186,7 +186,21 @@ function startCountdownTicker() {
 // Format elapsed time since kickoff (e.g. "45'")
 function formatElapsed(ms) {
   const totalMinutes = Math.floor(ms / 60000);
-  return `${totalMinutes}'`;
+
+  // First half: 0-45 mins → show 0' to 45'
+  if (totalMinutes <= 45) {
+    return `${totalMinutes}'`;
+  }
+
+  // Half time break: 45-65 mins real time → show 45+' (paused)
+  if (totalMinutes <= 65) {
+    return `HT`;
+  }
+
+  // Second half: 65-125 mins real time → map to 46' to 90'
+  const secondHalf = 46 + (totalMinutes - 65);
+  const display    = Math.min(secondHalf, 90);
+  return `${display}'`;
 }
 
 function formatCountdown(ms) {
