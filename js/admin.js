@@ -7,7 +7,7 @@ let roundsCache  = [];
 let matchesCache = [];
 let _adminDb     = null;
 
-const CAIRO_OFFSET_HOURS = 2;
+const CAIRO_OFFSET_HOURS = 3;
 
 // ============================================
 // INIT — create own client to avoid timing issues
