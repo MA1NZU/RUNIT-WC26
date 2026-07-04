@@ -69,9 +69,6 @@ function previewCairoTime(val) {
     UTC: ${utcString}</span>`;
 }
 
-// ============================================
-// POINTS CALCULATOR
-// ============================================
 function calculatePoints(pred, actualHome, actualAway, penaltiesWinner) {
   const ah = Number(actualHome);
   const aw = Number(actualAway);
@@ -79,31 +76,55 @@ function calculatePoints(pred, actualHome, actualAway, penaltiesWinner) {
   const pw = Number(pred.predicted_away);
 
   const isPerfect     = ph === ah && pw === aw;
-  const actualOutcome = Math.sign(ah - aw);
+  const actualOutcome = Math.sign(ah - aw); // based on 90min score
   const predOutcome   = Math.sign(ph - pw);
-  const isCorrect     = predOutcome === actualOutcome;
   const isDraw        = ah === aw;
   const hasPenalties  = !!penaltiesWinner;
 
+  // ---- No penalties ----
   if (!hasPenalties) {
     if (isPerfect) return 10;
-    if (isCorrect) return 5;
+    if (predOutcome === actualOutcome) return 5;
     return 0;
   }
 
-  if (isDraw && hasPenalties) {
+  // ---- Match went to penalties (always a draw after 90/120 mins) ----
+  // The "true winner" is whoever won on penalties
+  // penaltiesWinner = 'home' or 'away'
+
+  const penWinnerOutcome = penaltiesWinner === 'home' ? 1 : -1;
+  // +1 means home win, -1 means away win
+
+  if (isPerfect) {
+    // Predicted exact draw score (e.g. 1-1 actual, predicted 1-1)
+    // AND predicted correct penalties winner → 12pts
+    if (pred.predicted_penalties === penaltiesWinner) return 12;
+    // Predicted exact draw score but wrong/no penalties pick → 0pts
+    return 0;
+  }
+
+  if (isDraw) {
+    // Actual score is a draw after 90 mins
     const predictedDraw = predOutcome === 0;
-    if (isPerfect) {
-      return pred.predicted_penalties === penaltiesWinner ? 12 : 0;
-    }
+
     if (predictedDraw) {
-      return pred.predicted_penalties === penaltiesWinner ? 7 : 0;
+      // Predicted a draw (but not exact score) + correct penalties → 7pts
+      if (pred.predicted_penalties === penaltiesWinner) return 7;
+      // Predicted draw but wrong penalties → 0pts
+      return 0;
     }
+
+    // Predicted a non-draw result — check if they picked the correct winner
+    // e.g. predicted 2-1 Egypt (home win) and Egypt won on pens → 5pts
+    if (predOutcome === penWinnerOutcome) return 5;
+
+    // Predicted wrong winner → 0pts
     return 0;
   }
 
+  // Non-draw result with penalties (shouldn't normally happen but safe fallback)
   if (isPerfect) return 10;
-  if (isCorrect) return 5;
+  if (predOutcome === actualOutcome) return 5;
   return 0;
 }
 
