@@ -22,54 +22,63 @@ function calculatePoints(pred, actualHome, actualAway, penaltiesWinner) {
   const ph = Number(pred.predicted_home);
   const pw = Number(pred.predicted_away);
 
-  const isPerfect     = ph === ah && pw === aw;
-  const actualOutcome = Math.sign(ah - aw); // based on 90min score
-  const predOutcome   = Math.sign(ph - pw);
-  const isDraw        = ah === aw;
-  const hasPenalties  = !!penaltiesWinner;
+  const isPerfect        = ph === ah && pw === aw;
+  const actualOutcome    = Math.sign(ah - aw);   // -1, 0, +1 based on 90min
+  const predOutcome      = Math.sign(ph - pw);
+  const isDraw           = ah === aw;             // actual score is a draw
+  const hasPenalties     = !!penaltiesWinner;
+  const penWinnerOutcome = penaltiesWinner === 'home' ? 1 : -1;
 
-  // ---- No penalties ----
+  // ============================================
+  // NO PENALTIES — normal match
+  // ============================================
   if (!hasPenalties) {
     if (isPerfect) return 10;
+
+    // Player predicted a draw and also picked a pen winner — 
+    // but match was decided in normal time.
+    // Their "pen pick direction" can still count as correct outcome prediction.
     if (predOutcome === actualOutcome) return 5;
+
+    // Player predicted a DRAW score but match had a winner in normal time.
+    // Check if their penalties pick matches the actual winner direction.
+    // e.g. predicted 1-1 pen:home, actual 2-1 home → 5pts
+    if (predOutcome === 0 && pred.predicted_penalties) {
+      const predPenOutcome = pred.predicted_penalties === 'home' ? 1 : -1;
+      if (predPenOutcome === actualOutcome) return 5;
+    }
+
     return 0;
   }
 
-  // ---- Match went to penalties (always a draw after 90/120 mins) ----
-  // The "true winner" is whoever won on penalties
-  // penaltiesWinner = 'home' or 'away'
-
-  const penWinnerOutcome = penaltiesWinner === 'home' ? 1 : -1;
-  // +1 means home win, -1 means away win
-
+  // ============================================
+  // MATCH WENT TO PENALTIES (actual score is always a draw)
+  // ============================================
   if (isPerfect) {
-    // Predicted exact draw score (e.g. 1-1 actual, predicted 1-1)
-    // AND predicted correct penalties winner → 12pts
+    // Predicted exact score AND correct pen winner → 12pts
     if (pred.predicted_penalties === penaltiesWinner) return 12;
-    // Predicted exact draw score but wrong/no penalties pick → 0pts
+    // Predicted exact score but wrong/no pen pick → 0pts
     return 0;
   }
 
   if (isDraw) {
-    // Actual score is a draw after 90 mins
-    const predictedDraw = predOutcome === 0;
-
-    if (predictedDraw) {
-      // Predicted a draw (but not exact score) + correct penalties → 7pts
+    if (predOutcome === 0) {
+      // Predicted a draw (not exact) + correct pen winner → 7pts
       if (pred.predicted_penalties === penaltiesWinner) return 7;
-      // Predicted draw but wrong penalties → 0pts
+      // Predicted draw but wrong pen → 0pts
       return 0;
     }
 
-    // Predicted a non-draw result — check if they picked the correct winner
-    // e.g. predicted 2-1 Egypt (home win) and Egypt won on pens → 5pts
+    // Predicted a non-draw — check if direction matches pen winner
+    // e.g. predicted 2-1 home, home won on pens → 5pts
     if (predOutcome === penWinnerOutcome) return 5;
 
-    // Predicted wrong winner → 0pts
     return 0;
   }
 
-  // Non-draw result with penalties (shouldn't normally happen but safe fallback)
+  // ============================================
+  // Fallback: non-draw with penalties set (edge case)
+  // ============================================
   if (isPerfect) return 10;
   if (predOutcome === actualOutcome) return 5;
   return 0;
