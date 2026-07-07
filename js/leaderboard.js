@@ -32,7 +32,7 @@ async function init() {
       .limit(100),
     _lbDb
       .from('rounds')
-      .select('id, name, matches(id, home_team, away_team, match_date, home_score, away_score, is_finished)')
+      .select('id, name, matches(id, home_team, away_team, match_date, home_score, away_score, is_finished, penalties_winner)')
       .eq('is_active', true)
       .order('id')
   ]);
@@ -130,7 +130,7 @@ async function openPlayerModal(userId, username) {
   const [predsRes, jokersRes] = await Promise.all([
     _lbDb
       .from('predictions')
-      .select('match_id, predicted_home, predicted_away, points_earned')
+      .select('match_id, predicted_home, predicted_away, predicted_penalties, points_earned')
       .eq('user_id', userId)
       .in('match_id', matchIds),
     _lbDb
@@ -147,7 +147,7 @@ async function openPlayerModal(userId, username) {
     return;
   }
 
-  const predMap   = {};
+  const predMap = {};
   (predsRes.data || []).forEach(p => { predMap[p.match_id] = p; });
 
   // Build a set of match IDs where this user played their joker
@@ -179,8 +179,6 @@ async function openPlayerModal(userId, username) {
       const matchTime  = hasDate ? new Date(match.match_date) : null;
       const msUntil    = matchTime ? matchTime - new Date() : Infinity;
       const isLocked   = isFinished || (hasDate && msUntil <= 60 * 60 * 1000);
-
-      // Check if joker was played on this match
       const hasJoker   = jokerMatchIds.has(Number(match.id));
 
       const dateStr = hasDate
@@ -195,26 +193,12 @@ async function openPlayerModal(userId, username) {
           })
         : 'TBD';
 
-      // ---- Result badge — fixed logic ----
+      // ---- Result badge ----
       let resultBadge = '';
       if (isFinished && pred !== undefined) {
-        const pts        = pred ? pred.points_earned : 0;
-        const actualHome = match.home_score;
-        const actualAway = match.away_score;
-
-        // Work out what BASE result was (before joker doubling)
-        const isPerfect = pred
-          && pred.predicted_home === actualHome
-          && pred.predicted_away === actualAway;
-
-        const actualOutcome = Math.sign(actualHome - actualAway);
-        const predOutcome   = pred
-          ? Math.sign(pred.predicted_home - pred.predicted_away)
-          : null;
-        const isCorrect     = pred && predOutcome === actualOutcome;
+        const pts = pred ? pred.points_earned : 0;
 
         if (!pred) {
-          // No prediction made
           resultBadge = `
             <span style="background:rgba(255,23,68,0.1);
                   color:var(--red);
@@ -223,28 +207,7 @@ async function openPlayerModal(userId, username) {
                   font-size:0.78rem; font-weight:700">
               — No prediction
             </span>`;
-        } else if (isPerfect) {
-          // Perfect score — YELLOW/GOLD
-          resultBadge = `
-            <span style="background:rgba(255,215,0,0.15);
-                  color:var(--gold);
-                  border:1px solid rgba(255,215,0,0.4);
-                  padding:4px 10px; border-radius:20px;
-                  font-size:0.78rem; font-weight:700">
-              ⚡ Perfect! +${pts}pts${hasJoker ? ' 🃏' : ''}
-            </span>`;
-        } else if (isCorrect) {
-          // Correct outcome — GREEN
-          resultBadge = `
-            <span style="background:rgba(0,200,83,0.12);
-                  color:var(--green);
-                  border:1px solid rgba(0,200,83,0.3);
-                  padding:4px 10px; border-radius:20px;
-                  font-size:0.78rem; font-weight:700">
-              ✓ Correct +${pts}pts${hasJoker ? ' 🃏' : ''}
-            </span>`;
-        } else {
-          // Wrong — RED
+        } else if (pts === 0) {
           resultBadge = `
             <span style="background:rgba(255,23,68,0.1);
                   color:var(--red);
@@ -253,11 +216,49 @@ async function openPlayerModal(userId, username) {
                   font-size:0.78rem; font-weight:700">
               ✗ Wrong • 0pts
             </span>`;
+        } else {
+          // Check if perfect score
+          const isPerfect = Number(pred.predicted_home) === Number(match.home_score)
+            && Number(pred.predicted_away) === Number(match.away_score);
+
+          if (isPerfect) {
+            resultBadge = `
+              <span style="background:rgba(255,215,0,0.15);
+                    color:var(--gold);
+                    border:1px solid rgba(255,215,0,0.4);
+                    padding:4px 10px; border-radius:20px;
+                    font-size:0.78rem; font-weight:700">
+                ⚡ Perfect! +${pts}pts${hasJoker ? ' 🃏' : ''}
+              </span>`;
+          } else {
+            // Any other positive points = correct outcome
+            resultBadge = `
+              <span style="background:rgba(0,200,83,0.12);
+                    color:var(--green);
+                    border:1px solid rgba(0,200,83,0.3);
+                    padding:4px 10px; border-radius:20px;
+                    font-size:0.78rem; font-weight:700">
+                ✓ Correct +${pts}pts${hasJoker ? ' 🃏' : ''}
+              </span>`;
+          }
         }
       }
 
+      // ---- Penalties display ----
+      let penDisplay = '';
+      if (isFinished && match.penalties_winner) {
+        const penName = match.penalties_winner === 'home'
+          ? match.home_team : match.away_team;
+        penDisplay = `
+          <div style="text-align:center; font-size:0.75rem;
+               color:var(--text-muted); margin-bottom:8px">
+            Penalties: <strong style="color:var(--text)">${penName} won</strong>
+          </div>`;
+      }
+
       html += `
-        <div style="background:var(--dark-3); border:1px solid ${hasJoker ? 'rgba(255,215,0,0.3)' : 'var(--border)'};
+        <div style="background:var(--dark-3);
+             border:1px solid ${hasJoker ? 'rgba(255,215,0,0.3)' : 'var(--border)'};
              border-radius:12px; padding:14px 16px; margin-bottom:10px;
              ${hasJoker ? 'box-shadow:0 0 10px rgba(255,215,0,0.08)' : ''}">
 
@@ -291,9 +292,11 @@ async function openPlayerModal(userId, username) {
 
           <!-- Date -->
           <div style="text-align:center; font-size:0.75rem;
-               color:var(--text-muted); margin-bottom:10px">
-            ${dateStr} 
+               color:var(--text-muted); margin-bottom:8px">
+            ${dateStr}
           </div>
+
+          ${penDisplay}
 
           <!-- Prediction + result -->
           <div style="text-align:center">
@@ -302,16 +305,26 @@ async function openPlayerModal(userId, username) {
                 ? `<div style="display:flex; align-items:center;
                         justify-content:center; gap:12px; flex-wrap:wrap">
                      <div>
-                       <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:4px">
+                       <div style="font-size:0.72rem; color:var(--text-muted);
+                            margin-bottom:4px">
                          Predicted
                        </div>
-                       <div style="font-size:1.3rem; font-weight:800; color:var(--text)">
+                       <div style="font-size:1.3rem; font-weight:800;
+                            color:var(--text)">
                          ${pred.predicted_home} – ${pred.predicted_away}
+                         ${pred.predicted_penalties
+                           ? `<span style="font-size:0.78rem; color:var(--text-muted);
+                                   font-weight:600">
+                                (Pen: ${pred.predicted_penalties === 'home'
+                                  ? match.home_team : match.away_team})
+                              </span>`
+                           : ''}
                        </div>
                      </div>
                      ${resultBadge ? `<div>${resultBadge}</div>` : ''}
                    </div>`
-                : `<span style="color:var(--text-muted); font-size:0.85rem; font-style:italic">
+                : `<span style="color:var(--text-muted);
+                        font-size:0.85rem; font-style:italic">
                      No prediction made
                    </span>`
               : `<span style="color:var(--text-muted); font-size:0.82rem">
