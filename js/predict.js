@@ -499,17 +499,7 @@ function renderMatches(rounds, predMap) {
       // ---- Result badge ----
       let resultBadge = '';
       if (isFinished && pred !== undefined) {
-        // Recalculate points fresh instead of reading stored value
-const storedPts = pred ? pred.points_earned : 0;
-const calcPts = pred ? calculatePoints(
-  pred,
-  match.home_score,
-  match.away_score,
-  match.penalties_winner || null
-) : 0;
-// Use whichever is higher (handles display before re-score)
-const pts = Math.max(storedPts, calcPts);
-const jokerLabel = isJokerOnThisMatch && pts > 0 ? ' (🃏 x2)' : '';
+        const pts = pred ? pred.points_earned : 0;
         const ah  = Number(match.home_score);
         const aw  = Number(match.away_score);
         const ph  = pred ? Number(pred.predicted_home) : null;
