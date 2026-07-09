@@ -76,9 +76,9 @@ function calculatePoints(pred, actualHome, actualAway, penaltiesWinner) {
   const pw = Number(pred.predicted_away);
 
   const isPerfect        = ph === ah && pw === aw;
-  const actualOutcome    = Math.sign(ah - aw);   // -1, 0, +1 based on 90min
+  const actualOutcome    = Math.sign(ah - aw);
   const predOutcome      = Math.sign(ph - pw);
-  const isDraw           = ah === aw;             // actual score is a draw
+  const isDraw           = ah === aw;
   const hasPenalties     = !!penaltiesWinner;
   const penWinnerOutcome = penaltiesWinner === 'home' ? 1 : -1;
 
@@ -86,56 +86,57 @@ function calculatePoints(pred, actualHome, actualAway, penaltiesWinner) {
   // NO PENALTIES — normal match
   // ============================================
   if (!hasPenalties) {
-    if (isPerfect) return 10;
+    if (isPerfect) return 14;
+    if (predOutcome === actualOutcome) return 7;
 
-    // Player predicted a draw and also picked a pen winner — 
-    // but match was decided in normal time.
-    // Their "pen pick direction" can still count as correct outcome prediction.
-    if (predOutcome === actualOutcome) return 5;
-
-    // Player predicted a DRAW score but match had a winner in normal time.
-    // Check if their penalties pick matches the actual winner direction.
-    // e.g. predicted 1-1 pen:home, actual 2-1 home → 5pts
+    // Player predicted a draw + picked pen winner
+    // but match was decided in normal time → 5pts consolation
     if (predOutcome === 0 && pred.predicted_penalties) {
       const predPenOutcome = pred.predicted_penalties === 'home' ? 1 : -1;
       if (predPenOutcome === actualOutcome) return 5;
+      // Predicted draw+pen but wrong direction → 0pts
+      return 0;
     }
 
     return 0;
   }
 
   // ============================================
-  // MATCH WENT TO PENALTIES (actual score is always a draw)
+  // MATCH WENT TO PENALTIES
   // ============================================
+
   if (isPerfect) {
-    // Predicted exact score AND correct pen winner → 12pts
-    if (pred.predicted_penalties === penaltiesWinner) return 12;
-    // Predicted exact score but wrong/no pen pick → 0pts
-    return 0;
+    // Predicted exact draw score + correct pen winner → 16pts
+    if (pred.predicted_penalties === penaltiesWinner) return 16;
+    // Predicted exact draw score but wrong/no pen pick → 5pts consolation
+    // (got the score right but missed the pen prediction)
+    return 5;
   }
 
   if (isDraw) {
     if (predOutcome === 0) {
-      // Predicted a draw (not exact) + correct pen winner → 7pts
-      if (pred.predicted_penalties === penaltiesWinner) return 7;
-      // Predicted draw but wrong pen → 0pts
-      return 0;
+      // Predicted a draw (not exact) + correct pen winner → 10pts
+      if (pred.predicted_penalties === penaltiesWinner) return 10;
+      // Predicted draw but wrong/no pen → 5pts consolation
+      return 5;
     }
 
     // Predicted a non-draw — check if direction matches pen winner
-    // e.g. predicted 2-1 home, home won on pens → 5pts
-    if (predOutcome === penWinnerOutcome) return 5;
+    // e.g. predicted 2-1 home, home won on pens → 7pts
+    if (predOutcome === penWinnerOutcome) return 7;
 
+    // Predicted wrong winner → 0pts
     return 0;
   }
 
   // ============================================
-  // Fallback: non-draw with penalties set (edge case)
+  // Fallback: non-draw with penalties (edge case)
   // ============================================
-  if (isPerfect) return 10;
-  if (predOutcome === actualOutcome) return 5;
+  if (isPerfect) return 14;
+  if (predOutcome === actualOutcome) return 7;
   return 0;
 }
+
 // ============================================
 // LOAD ALL DATA
 // ============================================
