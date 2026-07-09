@@ -513,23 +513,24 @@ function renderMatches(rounds, predMap) {
 
         if (!pred) {
     resultBadge = `<span class="result-badge wrong">No prediction made</span>`;
-  } else if (pts === 24) {
-    resultBadge = `<span class="result-badge exact">⚡ Perfect + Penalties + Joker! +24pts</span>`;
+  } else if (pts === 32) {
+    resultBadge = `<span class="result-badge exact">⚡ Perfect + Penalties + Joker! +32pts</span>`;
+  } else if (pts === 28) {
+    resultBadge = `<span class="result-badge exact">⚡ Perfect Score + Joker! +28pts</span>`;
   } else if (pts === 20) {
-    resultBadge = `<span class="result-badge exact">⚡ Perfect Score + Joker! +20pts</span>`;
+    resultBadge = `<span class="result-badge exact">⚡ Perfect Penalties + Joker! +20pts</span>`;
+  } else if (pts === 16) {
+    resultBadge = `<span class="result-badge exact">⚡ Perfect + Penalties! +16pts</span>`;
   } else if (pts === 14) {
-    resultBadge = `<span class="result-badge exact">⚡ Perfect Penalties + Joker! +14pts</span>`;
-  } else if (pts === 12) {
-    resultBadge = `<span class="result-badge exact">⚡ Perfect + Penalties! +12pts</span>`;
+    resultBadge = `<span class="result-badge exact">⚡ Perfect Score! +14pts</span>`;
   } else if (pts === 10) {
-    resultBadge = `<span class="result-badge exact">⚡ Perfect Score! +10pts</span>`;
+    resultBadge = `<span class="result-badge correct">✓ Correct Draw + Penalties! +10pts</span>`;
   } else if (pts === 7) {
-    resultBadge = `<span class="result-badge correct">✓ Correct Draw + Penalties! +7pts</span>`;
+    resultBadge = `<span class="result-badge correct">✓ Correct Outcome +7pts${jokerLabel}</span>`;
   } else if (pts === 5) {
-    resultBadge = `<span class="result-badge correct">✓ Correct Outcome +5pts${jokerLabel}</span>`;
+    resultBadge = `<span class="result-badge correct">✓ Predicted Pens +5pts${jokerLabel}</span>`;
   } else if (pts > 0) {
-    // Catches any other valid point value (new scoring paths, joker combos etc.)
-    resultBadge = `<span class="result-badge correct">✓ Correct Outcome +${pts}pts${jokerLabel}</span>`;
+    resultBadge = `<span class="result-badge correct">✓ Correct +${pts}pts${jokerLabel}</span>`;
   } else {
     resultBadge = `<span class="result-badge wrong">✗ Wrong — 0pts</span>`;
   }
